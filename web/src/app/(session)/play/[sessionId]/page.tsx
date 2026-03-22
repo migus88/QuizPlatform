@@ -13,18 +13,18 @@ import { Check, X, Trophy } from "lucide-react";
 type PlayState = "waiting" | "question" | "result" | "leaderboard" | "finished";
 
 interface QuestionData {
-  questionId: string;
+  id: string;
   text: string;
-  answerOptions: AnswerOptionResponse[];
+  options: AnswerOptionResponse[];
   timeLimitSeconds: number;
   questionNumber: number;
   totalQuestions: number;
 }
 
 interface AnswerResult {
-  correct: boolean;
-  pointsAwarded: number;
-  totalScore: number;
+  isCorrect: boolean;
+  awardedPoints: number;
+  newScore: number;
 }
 
 export default function PlayPage() {
@@ -82,9 +82,9 @@ export default function PlayPage() {
       connection.on(
         HubEvents.QUESTION_STARTED,
         (data: {
-          questionId: string;
+          id: string;
           text: string;
-          answerOptions: AnswerOptionResponse[];
+          options: AnswerOptionResponse[];
           timeLimitSeconds: number;
           questionNumber: number;
           totalQuestions: number;
@@ -104,9 +104,9 @@ export default function PlayPage() {
 
       connection.on(
         HubEvents.ANSWER_RESULT,
-        (data: { correct: boolean; pointsAwarded: number; totalScore: number }) => {
+        (data: { isCorrect: boolean; awardedPoints: number; newScore: number }) => {
           setAnswerResult(data);
-          setMyScore(data.totalScore);
+          setMyScore(data.newScore);
           setPlayState("result");
         }
       );
@@ -114,7 +114,7 @@ export default function PlayPage() {
       connection.on(HubEvents.QUESTION_ENDED, () => {
         // Question ended, if we haven't answered, show result
         if (!answered) {
-          setAnswerResult({ correct: false, pointsAwarded: 0, totalScore: myScore });
+          setAnswerResult({ isCorrect: false, awardedPoints: 0, newScore: myScore });
           setPlayState("result");
         }
       });
@@ -139,20 +139,9 @@ export default function PlayPage() {
       // Try to rejoin if we have stored info
       if (storedSession && storedSession.sessionId === params.sessionId) {
         try {
-          await connection.invoke("RejoinSession", {
-            joinCode: storedSession.joinCode,
-            nickname: storedSession.nickname,
-          });
+          await connection.invoke("JoinSession", storedSession.joinCode, storedSession.nickname);
         } catch {
-          // If rejoin fails, try normal join
-          try {
-            await connection.invoke("JoinSession", {
-              joinCode: storedSession.joinCode,
-              nickname: storedSession.nickname,
-            });
-          } catch {
-            // Already joined or cannot join
-          }
+          // Already joined or cannot join
         }
       }
 
@@ -170,10 +159,7 @@ export default function PlayPage() {
     if (answered || !connectionRef.current || !currentQuestion) return;
     setAnswered(true);
     try {
-      await connectionRef.current.invoke("SubmitAnswer", {
-        questionId: currentQuestion.questionId,
-        answerOptionId: optionId,
-      });
+      await connectionRef.current.invoke("SubmitAnswer", params.sessionId, currentQuestion.id, optionId);
     } catch {
       toast.error("Failed to submit answer");
       setAnswered(false);
@@ -220,7 +206,7 @@ export default function PlayPage() {
 
   // QUESTION
   if (playState === "question" && currentQuestion) {
-    const sortedOptions = [...currentQuestion.answerOptions].sort(
+    const sortedOptions = [...currentQuestion.options].sort(
       (a, b) => a.order - b.order
     );
     const timerPercent = maxTime > 0 ? (timer / maxTime) * 100 : 0;
@@ -277,7 +263,7 @@ export default function PlayPage() {
       <div className="w-full max-w-md text-center">
         <Card>
           <CardContent className="py-12">
-            {answerResult?.correct ? (
+            {answerResult?.isCorrect ? (
               <>
                 <Check className="w-20 h-20 mx-auto text-emerald-500 mb-4" />
                 <h2 className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">
@@ -294,10 +280,10 @@ export default function PlayPage() {
             )}
             <div className="mt-6 space-y-2">
               <p className="text-2xl font-bold">
-                +{answerResult?.pointsAwarded || 0} points
+                +{answerResult?.awardedPoints || 0} points
               </p>
               <p className="text-muted-foreground">
-                Total: {answerResult?.totalScore || myScore}
+                Total: {answerResult?.newScore || myScore}
               </p>
             </div>
             <p className="text-sm text-muted-foreground mt-6">

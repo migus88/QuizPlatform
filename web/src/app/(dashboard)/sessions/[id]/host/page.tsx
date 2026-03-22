@@ -21,9 +21,9 @@ import { Users, Play, Trophy, ArrowRight, ChevronRight } from "lucide-react";
 type HostState = "lobby" | "question" | "reveal" | "leaderboard" | "finished";
 
 interface QuestionData {
-  questionId: string;
+  id: string;
   text: string;
-  answerOptions: AnswerOptionResponse[];
+  options: AnswerOptionResponse[];
   timeLimitSeconds: number;
   questionNumber: number;
   totalQuestions: number;
@@ -94,9 +94,9 @@ export default function HostPage() {
         connection.on(
           HubEvents.QUESTION_STARTED,
           (data: {
-            questionId: string;
+            id: string;
             text: string;
-            answerOptions: AnswerOptionResponse[];
+            options: AnswerOptionResponse[];
             timeLimitSeconds: number;
             questionNumber: number;
             totalQuestions: number;
@@ -114,8 +114,8 @@ export default function HostPage() {
           setTimer(seconds);
         });
 
-        connection.on(HubEvents.ANSWER_SUBMITTED, (data: { answerCount: number }) => {
-          setAnswerCount(data.answerCount);
+        connection.on(HubEvents.ANSWER_SUBMITTED, (data: { totalAnswered: number; totalParticipants: number }) => {
+          setAnswerCount(data.totalAnswered);
         });
 
         connection.on(HubEvents.QUESTION_ENDED, () => {
@@ -124,9 +124,11 @@ export default function HostPage() {
 
         connection.on(
           HubEvents.ANSWER_REVEALED,
-          (data: { correctOptionId: string; distribution: AnswerDistribution }) => {
+          (data: { correctOptionId: string; options: { id: string; count: number }[] }) => {
             setCorrectOptionId(data.correctOptionId);
-            setDistribution(data.distribution);
+            const dist: AnswerDistribution = {};
+            data.options.forEach((opt) => { dist[opt.id] = opt.count; });
+            setDistribution(dist);
             setHostState("reveal");
           }
         );
@@ -280,7 +282,7 @@ export default function HostPage() {
 
   // QUESTION DISPLAY
   if (hostState === "question" && currentQuestion) {
-    const sortedOptions = [...currentQuestion.answerOptions].sort(
+    const sortedOptions = [...currentQuestion.options].sort(
       (a, b) => a.order - b.order
     );
     return (
@@ -325,7 +327,7 @@ export default function HostPage() {
 
   // ANSWER REVEAL
   if (hostState === "reveal" && currentQuestion) {
-    const sortedOptions = [...currentQuestion.answerOptions].sort(
+    const sortedOptions = [...currentQuestion.options].sort(
       (a, b) => a.order - b.order
     );
     const maxVotes = Math.max(1, ...Object.values(distribution));

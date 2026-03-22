@@ -50,10 +50,7 @@ function JoinContent() {
     try {
       const connection = await startConnection();
 
-      const result = await connection.invoke("JoinSession", {
-        joinCode: session.joinCode,
-        nickname: nickname.trim(),
-      });
+      const result = await connection.invoke("JoinSession", session.joinCode, nickname.trim());
 
       // Store session info for reconnection
       if (typeof window !== "undefined") {
