@@ -188,6 +188,64 @@ public static class SessionEndpoints
             var leaderboard = participants.Select((p, i) => new LeaderboardEntry(i + 1, p.Nickname, p.Score, p.Emoji, p.Color)).ToList();
             return Results.Ok(leaderboard);
         }).RequireAuthorization();
+
+        // Session analytics
+        group.MapGet("/{id:guid}/analytics", async (Guid id, ClaimsPrincipal principal, AppDbContext db) =>
+        {
+            var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            var session = await db.Sessions
+                .Include(s => s.Quiz)
+                    .ThenInclude(q => q.Questions.OrderBy(qu => qu.Order))
+                        .ThenInclude(q => q.AnswerOptions.OrderBy(a => a.Order))
+                .Include(s => s.Participants)
+                    .ThenInclude(p => p.Answers)
+                .FirstOrDefaultAsync(s => s.Id == id);
+
+            if (session is null) return Results.NotFound();
+            if (session.CreatedByUserId != userId) return Results.Forbid();
+
+            var questions = session.Quiz.Questions.Select(q => new QuestionAnalytics(
+                q.Id, q.Text, q.Order, q.Points, q.TimeLimitSeconds,
+                q.AnswerOptions.Select(a => new AnswerOptionAnalytics(a.Id, a.Text, a.IsCorrect, a.Order)).ToList(),
+                session.Participants.SelectMany(p => p.Answers
+                    .Where(a => a.QuestionId == q.Id)
+                    .Select(a => new ParticipantAnswerAnalytics(
+                        p.Id, p.Nickname, p.Emoji,
+                        a.SelectedAnswerOptionId, a.AnsweredAt,
+                        a.IsCorrect, a.AwardedPoints
+                    ))
+                ).ToList()
+            )).ToList();
+
+            return Results.Ok(new SessionAnalyticsResponse(
+                session.Id, session.Quiz.Title, session.Status.ToString(),
+                session.Participants.Count, session.StartedAt, session.EndedAt,
+                questions
+            ));
+        }).RequireAuthorization();
+
+        // Delete session analytics
+        group.MapDelete("/{id:guid}/analytics", async (Guid id, ClaimsPrincipal principal, AppDbContext db) =>
+        {
+            var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            var session = await db.Sessions
+                .Include(s => s.Participants)
+                .FirstOrDefaultAsync(s => s.Id == id);
+
+            if (session is null) return Results.NotFound();
+            if (session.CreatedByUserId != userId) return Results.Forbid();
+
+            var participantIds = session.Participants.Select(p => p.Id).ToList();
+            var answers = await db.ParticipantAnswers
+                .Where(a => participantIds.Contains(a.ParticipantId))
+                .ToListAsync();
+
+            db.ParticipantAnswers.RemoveRange(answers);
+            foreach (var p in session.Participants) p.Score = 0;
+            await db.SaveChangesAsync();
+
+            return Results.NoContent();
+        }).RequireAuthorization();
     }
 
     private static string GenerateJoinCode()

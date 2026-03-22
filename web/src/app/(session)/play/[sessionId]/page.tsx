@@ -7,7 +7,8 @@ import { useQuizHub, HubEvents } from "@/lib/signalr";
 import type { AnswerOptionResponse, LeaderboardEntry, ParticipantResponse } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { PlayerAvatar, RankBadge } from "@/components/player-avatar";
+import { PlayerAvatar } from "@/components/player-avatar";
+import { AnimatedLeaderboard } from "@/components/animated-leaderboard";
 import { toast } from "sonner";
 import { Check, X, Trophy } from "lucide-react";
 
@@ -198,6 +199,7 @@ export default function PlayPage() {
 
         connection.on(HubEvents.SESSION_ENDED, () => {
           setPlayState("finished");
+          sessionStorage.removeItem("quizSession");
         });
 
         connection.on(HubEvents.ALREADY_ANSWERED, () => {
@@ -485,38 +487,13 @@ export default function PlayPage() {
 
   // LEADERBOARD
   if (playState === "leaderboard") {
-    const top5 = leaderboard.slice(0, 5);
     return (
-      <div className="w-full max-w-md text-center">
-        <h2 className="text-2xl font-bold mb-2">Leaderboard</h2>
-        {myRank !== null && (
-          <p className="text-muted-foreground mb-6">
-            Your rank: <span className="font-bold">#{myRank}</span> - {myScore} pts
-          </p>
-        )}
-        <div className="space-y-2 mb-4">
-          {top5.map((entry) => {
-            const isMe = entry.nickname === nickname;
-            return (
-              <Card key={entry.nickname} className={isMe ? "ring-2 ring-primary" : ""}>
-                <CardContent className="py-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <RankBadge rank={entry.rank} />
-                      <PlayerAvatar emoji={entry.emoji} size="sm" />
-                      <span className="w-6 text-sm font-bold">#{entry.rank}</span>
-                      <span className={`font-medium ${isMe ? "text-primary" : ""}`}>
-                        {entry.nickname}
-                      </span>
-                    </div>
-                    <span className="font-mono font-bold">{entry.score}</span>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      </div>
+      <AnimatedLeaderboard
+        entries={leaderboard}
+        nickname={nickname}
+        myRank={myRank}
+        myScore={myScore}
+      />
     );
   }
 

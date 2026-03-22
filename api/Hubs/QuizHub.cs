@@ -242,11 +242,20 @@ public class QuizHub : Hub
         var selectedOption = question.AnswerOptions.FirstOrDefault(a => a.Id == answerGuid);
         var isCorrect = selectedOption?.IsCorrect ?? false;
 
-        // Calculate points based on speed
+        // Calculate points based on speed - max points for instant, min 1 for last second
         var awardedPoints = 0;
         if (isCorrect)
         {
-            awardedPoints = question.Points; // Full points for correct answer
+            var timerState = _timerService.GetTimerState(sessionGuid);
+            if (timerState.HasValue && timerState.Value.TotalSeconds > 0)
+            {
+                var ratio = (double)timerState.Value.RemainingSeconds / timerState.Value.TotalSeconds;
+                awardedPoints = Math.Max(1, (int)Math.Ceiling(question.Points * ratio));
+            }
+            else
+            {
+                awardedPoints = question.Points;
+            }
         }
 
         var answer = new ParticipantAnswer
@@ -317,7 +326,7 @@ public class QuizHub : Hub
         await _hubContext.Clients.Group(sessionId).SendAsync("QuestionStarted", questionData);
 
         // Start timer
-        var cancellationToken = _timerService.StartTimer(sessionGuid);
+        var cancellationToken = _timerService.StartTimer(sessionGuid, question.TimeLimitSeconds);
         var scopeFactory = _scopeFactory;
         var hubContext = _hubContext;
 

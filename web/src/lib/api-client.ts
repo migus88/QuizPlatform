@@ -9,6 +9,7 @@ import type {
   QuizDetailResponse,
   QuizListResponse,
   QuestionResponse,
+  SessionAnalyticsResponse,
   SessionResponse,
   UpdateProfileRequest,
   UpdateQuestionRequest,
@@ -94,6 +95,8 @@ class ApiClient {
     nextQuestion: (id: string) => this.request<SessionResponse>("POST", `/api/sessions/${id}/next-question`),
     finish: (id: string) => this.request<SessionResponse>("POST", `/api/sessions/${id}/finish`),
     leaderboard: (id: string) => this.request<LeaderboardEntry[]>("GET", `/api/sessions/${id}/leaderboard`),
+    analytics: (id: string) => this.request<SessionAnalyticsResponse>("GET", `/api/sessions/${id}/analytics`),
+    clearAnalytics: (id: string) => this.request<void>("DELETE", `/api/sessions/${id}/analytics`),
   };
 
   // Profile

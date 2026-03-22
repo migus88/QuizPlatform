@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PlayerAvatar, RankBadge } from "@/components/player-avatar";
+import { AnimatedLeaderboard } from "@/components/animated-leaderboard";
 import { toast } from "sonner";
 import { Users, Play, Trophy, ArrowRight, ChevronRight, Check } from "lucide-react";
 
@@ -419,30 +420,11 @@ export default function HostPage() {
 
   // LEADERBOARD
   if (hostState === "leaderboard") {
-    const top5 = leaderboard.slice(0, 5);
-
     return (
-      <div className="max-w-2xl mx-auto text-center">
-        <h2 className="text-3xl font-bold mb-8">Leaderboard</h2>
+      <div>
+        <AnimatedLeaderboard entries={leaderboard} />
 
-        <div className="space-y-3 mb-8">
-          {top5.map((entry) => (
-            <Card key={entry.nickname}>
-              <CardContent className="py-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <RankBadge rank={entry.rank} />
-                    <PlayerAvatar emoji={entry.emoji} size="sm" />
-                    <span className="font-medium text-lg">{entry.nickname}</span>
-                  </div>
-                  <span className="font-mono font-bold text-lg">{entry.score}</span>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        <div className="flex justify-center gap-4">
+        <div className="flex justify-center gap-4 mt-8">
           {currentQuestion &&
             currentQuestion.questionNumber < currentQuestion.totalQuestions && (
               <Button size="lg" onClick={handleNextQuestion}>
@@ -482,12 +464,19 @@ export default function HostPage() {
           ))}
         </div>
 
-        <Link href="/quizzes">
-          <Button size="lg">
-            <ArrowRight className="h-5 w-5 mr-2" />
-            Back to Quizzes
-          </Button>
-        </Link>
+        <div className="flex justify-center gap-4">
+          <Link href={`/sessions/${params.id}/analytics`}>
+            <Button size="lg" variant="outline">
+              View Analytics
+            </Button>
+          </Link>
+          <Link href="/quizzes">
+            <Button size="lg">
+              <ArrowRight className="h-5 w-5 mr-2" />
+              Back to Quizzes
+            </Button>
+          </Link>
+        </div>
       </div>
     );
   }

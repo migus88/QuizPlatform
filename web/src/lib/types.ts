@@ -152,3 +152,41 @@ export interface LeaderboardEntry {
 export interface SubmitAnswerRequest {
   answerOptionId: string;
 }
+
+// Analytics
+export interface SessionAnalyticsResponse {
+  sessionId: string;
+  quizTitle: string;
+  status: string;
+  totalParticipants: number;
+  startedAt: string | null;
+  endedAt: string | null;
+  questions: QuestionAnalytics[];
+}
+
+export interface QuestionAnalytics {
+  questionId: string;
+  text: string;
+  order: number;
+  points: number;
+  timeLimitSeconds: number;
+  options: AnswerOptionAnalytics[];
+  participantAnswers: ParticipantAnswerAnalytics[];
+}
+
+export interface AnswerOptionAnalytics {
+  id: string;
+  text: string;
+  isCorrect: boolean;
+  order: number;
+}
+
+export interface ParticipantAnswerAnalytics {
+  participantId: string;
+  nickname: string;
+  emoji: string;
+  selectedAnswerOptionId: string | null;
+  answeredAt: string;
+  isCorrect: boolean;
+  awardedPoints: number;
+}

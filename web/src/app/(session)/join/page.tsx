@@ -25,7 +25,24 @@ function JoinContent() {
     if (codeParam) {
       setCode(codeParam.toUpperCase());
     }
-  }, [searchParams]);
+
+    // Check for existing active session
+    const stored = sessionStorage.getItem("quizSession");
+    if (stored) {
+      const data = JSON.parse(stored);
+      if (data.sessionId && data.joinCode) {
+        api.sessions.getByCode(data.joinCode).then((s) => {
+          if (s.status === "Lobby" || s.status === "Active") {
+            router.replace(`/play/${data.sessionId}`);
+          } else {
+            sessionStorage.removeItem("quizSession");
+          }
+        }).catch(() => {
+          sessionStorage.removeItem("quizSession");
+        });
+      }
+    }
+  }, [searchParams, router]);
 
   const handleJoinCode = async (e: React.FormEvent) => {
     e.preventDefault();
