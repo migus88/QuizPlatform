@@ -67,84 +67,97 @@ export default function HostPage() {
     }
   }, [params.id, router]);
 
-  const setupHub = useCallback(async () => {
-    try {
-      const connection = await startConnection();
-      connectionRef.current = connection;
-
-      connection.on(HubEvents.PARTICIPANT_JOINED, (participant: ParticipantResponse) => {
-        setParticipants((prev) => {
-          if (prev.find((p) => p.id === participant.id)) return prev;
-          return [...prev, participant];
-        });
-      });
-
-      connection.on(HubEvents.PARTICIPANT_DISCONNECTED, (participantId: string) => {
-        setParticipants((prev) =>
-          prev.map((p) => (p.id === participantId ? { ...p, isConnected: false } : p))
-        );
-      });
-
-      connection.on(
-        HubEvents.QUESTION_STARTED,
-        (data: {
-          questionId: string;
-          text: string;
-          answerOptions: AnswerOptionResponse[];
-          timeLimitSeconds: number;
-          questionNumber: number;
-          totalQuestions: number;
-        }) => {
-          setCurrentQuestion(data);
-          setTimer(data.timeLimitSeconds);
-          setAnswerCount(0);
-          setCorrectOptionId(null);
-          setDistribution({});
-          setHostState("question");
-        }
-      );
-
-      connection.on(HubEvents.TIMER_TICK, (seconds: number) => {
-        setTimer(seconds);
-      });
-
-      connection.on(HubEvents.ANSWER_SUBMITTED, (data: { answerCount: number }) => {
-        setAnswerCount(data.answerCount);
-      });
-
-      connection.on(HubEvents.QUESTION_ENDED, () => {
-        // Timer ended, enable reveal
-      });
-
-      connection.on(
-        HubEvents.ANSWER_REVEALED,
-        (data: { correctOptionId: string; distribution: AnswerDistribution }) => {
-          setCorrectOptionId(data.correctOptionId);
-          setDistribution(data.distribution);
-          setHostState("reveal");
-        }
-      );
-
-      connection.on(HubEvents.LEADERBOARD_UPDATED, (entries: LeaderboardEntry[]) => {
-        setLeaderboard(entries);
-        setHostState("leaderboard");
-      });
-
-      connection.on(HubEvents.SESSION_ENDED, () => {
-        setHostState("finished");
-      });
-
-      // Join as host
-      await connection.invoke("JoinAsHost", params.id);
-    } catch {
-      toast.error("Failed to connect to session hub");
-    }
-  }, [params.id, startConnection]);
-
   useEffect(() => {
+    let cancelled = false;
+
     loadSession();
-    setupHub();
-  }, [loadSession, setupHub]);
+
+    const setupHub = async () => {
+      try {
+        const connection = await startConnection();
+        if (cancelled) return;
+        connectionRef.current = connection;
+
+        connection.on(HubEvents.PARTICIPANT_JOINED, (participant: ParticipantResponse) => {
+          setParticipants((prev) => {
+            if (prev.find((p) => p.id === participant.id)) return prev;
+            return [...prev, participant];
+          });
+        });
+
+        connection.on(HubEvents.PARTICIPANT_DISCONNECTED, (participantId: string) => {
+          setParticipants((prev) =>
+            prev.map((p) => (p.id === participantId ? { ...p, isConnected: false } : p))
+          );
+        });
+
+        connection.on(
+          HubEvents.QUESTION_STARTED,
+          (data: {
+            questionId: string;
+            text: string;
+            answerOptions: AnswerOptionResponse[];
+            timeLimitSeconds: number;
+            questionNumber: number;
+            totalQuestions: number;
+          }) => {
+            setCurrentQuestion(data);
+            setTimer(data.timeLimitSeconds);
+            setAnswerCount(0);
+            setCorrectOptionId(null);
+            setDistribution({});
+            setHostState("question");
+          }
+        );
+
+        connection.on(HubEvents.TIMER_TICK, (seconds: number) => {
+          setTimer(seconds);
+        });
+
+        connection.on(HubEvents.ANSWER_SUBMITTED, (data: { answerCount: number }) => {
+          setAnswerCount(data.answerCount);
+        });
+
+        connection.on(HubEvents.QUESTION_ENDED, () => {
+          // Timer ended, enable reveal
+        });
+
+        connection.on(
+          HubEvents.ANSWER_REVEALED,
+          (data: { correctOptionId: string; distribution: AnswerDistribution }) => {
+            setCorrectOptionId(data.correctOptionId);
+            setDistribution(data.distribution);
+            setHostState("reveal");
+          }
+        );
+
+        connection.on(HubEvents.LEADERBOARD_UPDATED, (entries: LeaderboardEntry[]) => {
+          setLeaderboard(entries);
+          setHostState("leaderboard");
+        });
+
+        connection.on(HubEvents.SESSION_ENDED, () => {
+          setHostState("finished");
+        });
+
+        // Join as host
+        await connection.invoke("JoinAsHost", params.id);
+      } catch {
+        if (!cancelled) {
+          toast.error("Failed to connect to session hub");
+        }
+      }
+    };
+
+    // Defer connection to avoid React strict mode double-mount causing
+    // a connection to be started and immediately stopped during negotiation
+    const timer = setTimeout(setupHub, 0);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [loadSession, startConnection, params.id]);
 
   const handleStartSession = async () => {
     if (!session) return;

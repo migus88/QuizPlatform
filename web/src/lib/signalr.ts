@@ -33,13 +33,20 @@ export function createQuizConnection(): HubConnection {
 
 export function useQuizHub() {
   const connectionRef = useRef<HubConnection | null>(null);
+  const startingRef = useRef<Promise<HubConnection> | null>(null);
   const [connectionState, setConnectionState] = useState<HubConnectionState>(
     HubConnectionState.Disconnected
   );
 
   const startConnection = useCallback(async () => {
+    // If already connected, return existing connection
     if (connectionRef.current?.state === HubConnectionState.Connected) {
       return connectionRef.current;
+    }
+
+    // If a connection start is already in progress, wait for it
+    if (startingRef.current) {
+      return startingRef.current;
     }
 
     const connection = createQuizConnection();
@@ -49,13 +56,22 @@ export function useQuizHub() {
     connection.onreconnecting(() => setConnectionState(HubConnectionState.Reconnecting));
     connection.onreconnected(() => setConnectionState(HubConnectionState.Connected));
 
-    await connection.start();
-    setConnectionState(HubConnectionState.Connected);
-    return connection;
+    const startPromise = connection.start().then(() => {
+      setConnectionState(HubConnectionState.Connected);
+      startingRef.current = null;
+      return connection;
+    }).catch((err) => {
+      startingRef.current = null;
+      throw err;
+    });
+
+    startingRef.current = startPromise;
+    return startPromise;
   }, []);
 
   useEffect(() => {
     return () => {
+      startingRef.current = null;
       connectionRef.current?.stop();
     };
   }, []);

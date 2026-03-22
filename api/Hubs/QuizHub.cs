@@ -88,6 +88,23 @@ public class QuizHub : Hub
         await Clients.Caller.SendAsync("JoinedSession", sessionResponse, participantResponse, participants);
     }
 
+    public async Task JoinAsHost(string sessionId)
+    {
+        var sessionGuid = Guid.Parse(sessionId);
+        var userId = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        var session = await _db.Sessions
+            .FirstOrDefaultAsync(s => s.Id == sessionGuid);
+
+        if (session is null || session.CreatedByUserId != userId)
+        {
+            await Clients.Caller.SendAsync("Error", "Not authorized to host this session");
+            return;
+        }
+
+        await Groups.AddToGroupAsync(Context.ConnectionId, sessionId);
+    }
+
     public async Task SubmitAnswer(string sessionId, string questionId, string answerOptionId)
     {
         var sessionGuid = Guid.Parse(sessionId);
