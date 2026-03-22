@@ -242,19 +242,28 @@ public class QuizHub : Hub
         var selectedOption = question.AnswerOptions.FirstOrDefault(a => a.Id == answerGuid);
         var isCorrect = selectedOption?.IsCorrect ?? false;
 
-        // Calculate points based on speed - max points for instant, min 1 for last second
+        // Calculate points: per-answer override or question default, with optional time scaling
         var awardedPoints = 0;
         if (isCorrect)
         {
-            var timerState = _timerService.GetTimerState(sessionGuid);
-            if (timerState.HasValue && timerState.Value.TotalSeconds > 0)
+            var basePoints = selectedOption!.PointsOverride ?? question.Points;
+
+            if (question.DisableTimeScoring)
             {
-                var ratio = (double)timerState.Value.RemainingSeconds / timerState.Value.TotalSeconds;
-                awardedPoints = Math.Max(1, (int)Math.Ceiling(question.Points * ratio));
+                awardedPoints = basePoints;
             }
             else
             {
-                awardedPoints = question.Points;
+                var timerState = _timerService.GetTimerState(sessionGuid);
+                if (timerState.HasValue && timerState.Value.TotalSeconds > 0)
+                {
+                    var ratio = (double)timerState.Value.RemainingSeconds / timerState.Value.TotalSeconds;
+                    awardedPoints = Math.Max(1, (int)Math.Ceiling(basePoints * ratio));
+                }
+                else
+                {
+                    awardedPoints = basePoints;
+                }
             }
         }
 
@@ -428,7 +437,7 @@ public class QuizHub : Hub
         var revealData = new
         {
             questionId = question.Id,
-            correctOptionId = question.AnswerOptions.First(a => a.IsCorrect).Id,
+            correctOptionIds = question.AnswerOptions.Where(a => a.IsCorrect).Select(a => a.Id).ToList(),
             options = question.AnswerOptions.OrderBy(a => a.Order).Select(a => new
             {
                 id = a.Id,
@@ -464,7 +473,7 @@ public class QuizHub : Hub
         var revealData = new
         {
             questionId = question.Id,
-            correctOptionId = question.AnswerOptions.First(a => a.IsCorrect).Id,
+            correctOptionIds = question.AnswerOptions.Where(a => a.IsCorrect).Select(a => a.Id).ToList(),
             options = question.AnswerOptions.OrderBy(a => a.Order).Select(a => new
             {
                 id = a.Id,

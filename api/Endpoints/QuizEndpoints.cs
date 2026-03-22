@@ -47,9 +47,9 @@ public static class QuizEndpoints
             if (!isAdmin && !quiz.IsPublished) return Results.NotFound();
 
             var questions = quiz.Questions.Select(q => new QuestionResponse(
-                q.Id, q.Text, q.TimeLimitSeconds, q.Points, q.Order,
+                q.Id, q.Text, q.TimeLimitSeconds, q.Points, q.DisableTimeScoring, q.Order,
                 q.AnswerOptions.Select(a => new AnswerOptionResponse(
-                    a.Id, a.Text, isAdmin ? a.IsCorrect : false, a.Order
+                    a.Id, a.Text, isAdmin ? a.IsCorrect : false, isAdmin ? a.PointsOverride : null, a.Order
                 )).ToList()
             )).ToList();
 
@@ -121,13 +121,10 @@ public static class QuizEndpoints
             var quiz = await db.Quizzes.FindAsync(id);
             if (quiz is null) return Results.NotFound();
 
-            // Validate exactly 4 options
-            if (request.AnswerOptions.Count != 4)
-                return Results.BadRequest("Exactly 4 answer options are required");
-
-            // Validate exactly 1 correct
-            if (request.AnswerOptions.Count(a => a.IsCorrect) != 1)
-                return Results.BadRequest("Exactly 1 correct answer is required");
+            if (request.AnswerOptions.Count < 2 || request.AnswerOptions.Count > 6)
+                return Results.BadRequest("Between 2 and 6 answer options are required");
+            if (request.AnswerOptions.Count(a => a.IsCorrect) < 1)
+                return Results.BadRequest("At least 1 correct answer is required");
 
             var maxOrder = await db.Questions.Where(q => q.QuizId == id).MaxAsync(q => (int?)q.Order) ?? 0;
 
@@ -138,6 +135,7 @@ public static class QuizEndpoints
                 Text = request.Text,
                 TimeLimitSeconds = request.TimeLimitSeconds,
                 Points = request.Points,
+                DisableTimeScoring = request.DisableTimeScoring,
                 Order = maxOrder + 1
             };
 
@@ -147,6 +145,7 @@ public static class QuizEndpoints
                 QuestionId = question.Id,
                 Text = a.Text,
                 IsCorrect = a.IsCorrect,
+                PointsOverride = a.PointsOverride,
                 Order = i
             }).ToList();
 
@@ -155,8 +154,8 @@ public static class QuizEndpoints
             await db.SaveChangesAsync();
 
             return Results.Created($"/api/quizzes/{id}/questions/{question.Id}", new QuestionResponse(
-                question.Id, question.Text, question.TimeLimitSeconds, question.Points, question.Order,
-                answerOptions.Select(a => new AnswerOptionResponse(a.Id, a.Text, a.IsCorrect, a.Order)).ToList()));
+                question.Id, question.Text, question.TimeLimitSeconds, question.Points, question.DisableTimeScoring, question.Order,
+                answerOptions.Select(a => new AnswerOptionResponse(a.Id, a.Text, a.IsCorrect, a.PointsOverride, a.Order)).ToList()));
         });
 
         // Update question (admin only)
@@ -169,14 +168,15 @@ public static class QuizEndpoints
                 .FirstOrDefaultAsync(q => q.Id == questionId && q.QuizId == quizId);
             if (question is null) return Results.NotFound();
 
-            if (request.AnswerOptions.Count != 4)
-                return Results.BadRequest("Exactly 4 answer options are required");
-            if (request.AnswerOptions.Count(a => a.IsCorrect) != 1)
-                return Results.BadRequest("Exactly 1 correct answer is required");
+            if (request.AnswerOptions.Count < 2 || request.AnswerOptions.Count > 6)
+                return Results.BadRequest("Between 2 and 6 answer options are required");
+            if (request.AnswerOptions.Count(a => a.IsCorrect) < 1)
+                return Results.BadRequest("At least 1 correct answer is required");
 
             question.Text = request.Text;
             question.TimeLimitSeconds = request.TimeLimitSeconds;
             question.Points = request.Points;
+            question.DisableTimeScoring = request.DisableTimeScoring;
 
             // Remove old options and add new ones
             db.AnswerOptions.RemoveRange(question.AnswerOptions);
@@ -186,6 +186,7 @@ public static class QuizEndpoints
                 QuestionId = questionId,
                 Text = a.Text,
                 IsCorrect = a.IsCorrect,
+                PointsOverride = a.PointsOverride,
                 Order = i
             }).ToList();
             db.AnswerOptions.AddRange(newOptions);
@@ -193,8 +194,8 @@ public static class QuizEndpoints
             await db.SaveChangesAsync();
 
             return Results.Ok(new QuestionResponse(
-                question.Id, question.Text, question.TimeLimitSeconds, question.Points, question.Order,
-                newOptions.Select(a => new AnswerOptionResponse(a.Id, a.Text, a.IsCorrect, a.Order)).ToList()));
+                question.Id, question.Text, question.TimeLimitSeconds, question.Points, question.DisableTimeScoring, question.Order,
+                newOptions.Select(a => new AnswerOptionResponse(a.Id, a.Text, a.IsCorrect, a.PointsOverride, a.Order)).ToList()));
         });
 
         // Delete question (admin only)

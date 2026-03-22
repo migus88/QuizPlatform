@@ -67,6 +67,7 @@ export interface QuestionResponse {
   text: string;
   timeLimitSeconds: number;
   points: number;
+  disableTimeScoring: boolean;
   order: number;
   answerOptions: AnswerOptionResponse[];
 }
@@ -75,6 +76,7 @@ export interface AnswerOptionResponse {
   id: string;
   text: string;
   isCorrect: boolean;
+  pointsOverride: number | null;
   order: number;
 }
 
@@ -93,6 +95,7 @@ export interface CreateQuestionRequest {
   text: string;
   timeLimitSeconds: number;
   points: number;
+  disableTimeScoring: boolean;
   answerOptions: CreateAnswerOptionRequest[];
 }
 
@@ -100,12 +103,14 @@ export interface UpdateQuestionRequest {
   text: string;
   timeLimitSeconds: number;
   points: number;
+  disableTimeScoring: boolean;
   answerOptions: CreateAnswerOptionRequest[];
 }
 
 export interface CreateAnswerOptionRequest {
   text: string;
   isCorrect: boolean;
+  pointsOverride?: number | null;
 }
 
 // Sessions

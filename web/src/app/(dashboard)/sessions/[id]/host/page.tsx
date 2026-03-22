@@ -31,7 +31,7 @@ interface QuestionData {
 }
 
 interface RevealData {
-  correctOptionId: string;
+  correctOptionIds: string[];
   options: { id: string; text: string; isCorrect: boolean; count: number }[];
 }
 
@@ -40,6 +40,8 @@ const optionColors = [
   "bg-blue-500 text-white",
   "bg-emerald-500 text-white",
   "bg-amber-500 text-white",
+  "bg-purple-500 text-white",
+  "bg-pink-500 text-white",
 ];
 
 const optionColorsBg = [
@@ -47,6 +49,8 @@ const optionColorsBg = [
   "bg-blue-500",
   "bg-emerald-500",
   "bg-amber-500",
+  "bg-purple-500",
+  "bg-pink-500",
 ];
 
 export default function HostPage() {
@@ -323,7 +327,7 @@ export default function HostPage() {
           {sortedOptions.map((option, index) => (
             <div
               key={option.id}
-              className={`${optionColors[index % 4]} rounded-lg p-6 text-center text-lg font-medium`}
+              className={`${optionColors[index % 6]} rounded-lg p-6 text-center text-lg font-medium`}
             >
               {String.fromCharCode(65 + index)}. {option.text}
             </div>
@@ -399,7 +403,7 @@ export default function HostPage() {
                 </div>
                 <div className="w-full bg-muted rounded-full h-2">
                   <div
-                    className={`h-2 rounded-full transition-all duration-1000 ${optionColorsBg[index % 4]}`}
+                    className={`h-2 rounded-full transition-all duration-1000 ${optionColorsBg[index % 6]}`}
                     style={{ width: `${(votes / maxVotes) * 100}%` }}
                   />
                 </div>

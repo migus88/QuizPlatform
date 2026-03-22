@@ -7,6 +7,7 @@ public class Question
     public string Text { get; set; } = string.Empty;
     public int TimeLimitSeconds { get; set; } = 30;
     public int Points { get; set; } = 100;
+    public bool DisableTimeScoring { get; set; }
     public int Order { get; set; }
 
     public Quiz Quiz { get; set; } = null!;

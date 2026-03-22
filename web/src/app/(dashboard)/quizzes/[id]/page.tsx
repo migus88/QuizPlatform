@@ -23,23 +23,29 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Check, Clock, Trophy } from "lucide-react";
+import { Plus, Pencil, Trash2, Check, Clock, Trophy, X } from "lucide-react";
+
+interface OptionFormState {
+  text: string;
+  isCorrect: boolean;
+  pointsOverride?: number | null;
+}
 
 interface QuestionFormState {
   text: string;
   timeLimitSeconds: number;
   points: number;
-  answerOptions: CreateAnswerOptionRequest[];
+  disableTimeScoring: boolean;
+  answerOptions: OptionFormState[];
 }
 
 const emptyQuestionForm: QuestionFormState = {
   text: "",
   timeLimitSeconds: 30,
   points: 100,
+  disableTimeScoring: false,
   answerOptions: [
     { text: "", isCorrect: true },
-    { text: "", isCorrect: false },
-    { text: "", isCorrect: false },
     { text: "", isCorrect: false },
   ],
 };
@@ -101,7 +107,10 @@ export default function QuizEditorPage() {
 
   const openAddQuestion = () => {
     setEditingQuestion(null);
-    setQuestionForm({ ...emptyQuestionForm, answerOptions: emptyQuestionForm.answerOptions.map((o) => ({ ...o })) });
+    setQuestionForm({
+      ...emptyQuestionForm,
+      answerOptions: emptyQuestionForm.answerOptions.map((o) => ({ ...o })),
+    });
     setQuestionDialogOpen(true);
   };
 
@@ -111,20 +120,26 @@ export default function QuizEditorPage() {
       text: question.text,
       timeLimitSeconds: question.timeLimitSeconds,
       points: question.points,
+      disableTimeScoring: question.disableTimeScoring,
       answerOptions: question.answerOptions
         .sort((a, b) => a.order - b.order)
-        .map((o) => ({ text: o.text, isCorrect: o.isCorrect })),
+        .map((o) => ({
+          text: o.text,
+          isCorrect: o.isCorrect,
+          pointsOverride: o.pointsOverride,
+        })),
     });
     setQuestionDialogOpen(true);
   };
 
-  const setCorrectAnswer = (index: number) => {
+  const toggleCorrectAnswer = (index: number) => {
     setQuestionForm((prev) => ({
       ...prev,
-      answerOptions: prev.answerOptions.map((o, i) => ({
-        ...o,
-        isCorrect: i === index,
-      })),
+      answerOptions: prev.answerOptions.map((o, i) =>
+        i === index
+          ? { ...o, isCorrect: !o.isCorrect, pointsOverride: !o.isCorrect ? o.pointsOverride : null }
+          : o
+      ),
     }));
   };
 
@@ -137,11 +152,36 @@ export default function QuizEditorPage() {
     }));
   };
 
+  const updateOptionPoints = (index: number, value: string) => {
+    const pts = value === "" ? null : parseInt(value);
+    setQuestionForm((prev) => ({
+      ...prev,
+      answerOptions: prev.answerOptions.map((o, i) =>
+        i === index ? { ...o, pointsOverride: pts } : o
+      ),
+    }));
+  };
+
+  const addOption = () => {
+    if (questionForm.answerOptions.length >= 6) return;
+    setQuestionForm((prev) => ({
+      ...prev,
+      answerOptions: [...prev.answerOptions, { text: "", isCorrect: false }],
+    }));
+  };
+
+  const removeOption = (index: number) => {
+    if (questionForm.answerOptions.length <= 2) return;
+    setQuestionForm((prev) => ({
+      ...prev,
+      answerOptions: prev.answerOptions.filter((_, i) => i !== index),
+    }));
+  };
+
   const handleSaveQuestion = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!quiz) return;
 
-    // Validate
     if (!questionForm.text.trim()) {
       toast.error("Question text is required");
       return;
@@ -151,7 +191,7 @@ export default function QuizEditorPage() {
       return;
     }
     if (!questionForm.answerOptions.some((o) => o.isCorrect)) {
-      toast.error("Please select a correct answer");
+      toast.error("At least one correct answer is required");
       return;
     }
 
@@ -159,9 +199,11 @@ export default function QuizEditorPage() {
       text: questionForm.text.trim(),
       timeLimitSeconds: questionForm.timeLimitSeconds,
       points: questionForm.points,
+      disableTimeScoring: questionForm.disableTimeScoring,
       answerOptions: questionForm.answerOptions.map((o) => ({
         text: o.text.trim(),
         isCorrect: o.isCorrect,
+        pointsOverride: o.isCorrect ? (o.pointsOverride ?? undefined) : undefined,
       })),
     };
 
@@ -268,6 +310,7 @@ export default function QuizEditorPage() {
             const sortedOptions = [...question.answerOptions].sort(
               (a, b) => a.order - b.order
             );
+            const correctCount = sortedOptions.filter((o) => o.isCorrect).length;
             return (
               <Card key={question.id}>
                 <CardHeader>
@@ -276,7 +319,7 @@ export default function QuizEditorPage() {
                       <CardTitle className="text-base">
                         Q{index + 1}: {question.text}
                       </CardTitle>
-                      <div className="flex gap-3 mt-2 text-sm text-muted-foreground">
+                      <div className="flex gap-3 mt-2 text-sm text-muted-foreground flex-wrap">
                         <span className="flex items-center gap-1">
                           <Clock className="h-3 w-3" />
                           {question.timeLimitSeconds}s
@@ -285,6 +328,12 @@ export default function QuizEditorPage() {
                           <Trophy className="h-3 w-3" />
                           {question.points} pts
                         </span>
+                        {correctCount > 1 && (
+                          <Badge variant="outline" className="text-xs">{correctCount} correct</Badge>
+                        )}
+                        {question.disableTimeScoring && (
+                          <Badge variant="outline" className="text-xs">Fixed score</Badge>
+                        )}
                       </div>
                     </div>
                     <div className="flex gap-1">
@@ -309,7 +358,10 @@ export default function QuizEditorPage() {
                         }`}
                       >
                         {option.isCorrect && <Check className="h-3 w-3 shrink-0" />}
-                        <span>{String.fromCharCode(65 + optIndex)}. {option.text}</span>
+                        <span className="flex-1">{String.fromCharCode(65 + optIndex)}. {option.text}</span>
+                        {option.isCorrect && option.pointsOverride != null && (
+                          <span className="text-xs font-mono opacity-70">{option.pointsOverride}pts</span>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -322,7 +374,7 @@ export default function QuizEditorPage() {
 
       {/* Add/Edit Question Dialog */}
       <Dialog open={questionDialogOpen} onOpenChange={setQuestionDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingQuestion ? "Edit Question" : "Add Question"}</DialogTitle>
             <DialogDescription>
@@ -355,11 +407,11 @@ export default function QuizEditorPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="points">Points</Label>
+                <Label htmlFor="points">Default Points</Label>
                 <Input
                   id="points"
                   type="number"
-                  min={10}
+                  min={1}
                   max={1000}
                   value={questionForm.points}
                   onChange={(e) =>
@@ -368,15 +420,35 @@ export default function QuizEditorPage() {
                 />
               </div>
             </div>
+
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={questionForm.disableTimeScoring}
+                onChange={(e) =>
+                  setQuestionForm({ ...questionForm, disableTimeScoring: e.target.checked })
+                }
+                className="rounded"
+              />
+              <span className="text-sm">Fixed score (no time-based reduction)</span>
+            </label>
+
             <div className="space-y-3">
-              <Label>Answer Options (select the correct one)</Label>
+              <div className="flex items-center justify-between">
+                <Label>Answer Options (check correct answers)</Label>
+                {questionForm.answerOptions.length < 6 && (
+                  <Button type="button" variant="outline" size="sm" onClick={addOption}>
+                    <Plus className="h-3 w-3 mr-1" />
+                    Add
+                  </Button>
+                )}
+              </div>
               {questionForm.answerOptions.map((option, index) => (
                 <div key={index} className="flex items-center gap-2">
                   <input
-                    type="radio"
-                    name="correctAnswer"
+                    type="checkbox"
                     checked={option.isCorrect}
-                    onChange={() => setCorrectAnswer(index)}
+                    onChange={() => toggleCorrectAnswer(index)}
                     className="shrink-0"
                   />
                   <span className="text-sm font-medium shrink-0 w-6">
@@ -387,7 +459,24 @@ export default function QuizEditorPage() {
                     onChange={(e) => updateOptionText(index, e.target.value)}
                     placeholder={`Option ${String.fromCharCode(65 + index)}`}
                     required
+                    className="flex-1"
                   />
+                  {option.isCorrect && (
+                    <Input
+                      type="number"
+                      min={1}
+                      max={1000}
+                      value={option.pointsOverride ?? ""}
+                      onChange={(e) => updateOptionPoints(index, e.target.value)}
+                      placeholder="pts"
+                      className="w-20"
+                    />
+                  )}
+                  {questionForm.answerOptions.length > 2 && (
+                    <Button type="button" variant="ghost" size="icon" onClick={() => removeOption(index)}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               ))}
             </div>

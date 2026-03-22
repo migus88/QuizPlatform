@@ -30,7 +30,7 @@ interface AnswerResult {
 }
 
 interface RevealData {
-  correctOptionId: string;
+  correctOptionIds: string[];
   options: { id: string; text: string; isCorrect: boolean; count: number }[];
 }
 
@@ -39,6 +39,8 @@ const optionColorsBg = [
   "bg-blue-500",
   "bg-emerald-500",
   "bg-amber-500",
+  "bg-purple-500",
+  "bg-pink-500",
 ];
 
 const optionColorsInteractive = [
@@ -46,6 +48,8 @@ const optionColorsInteractive = [
   "bg-blue-500 hover:bg-blue-600 active:bg-blue-700",
   "bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700",
   "bg-amber-500 hover:bg-amber-600 active:bg-amber-700",
+  "bg-purple-500 hover:bg-purple-600 active:bg-purple-700",
+  "bg-pink-500 hover:bg-pink-600 active:bg-pink-700",
 ];
 
 export default function PlayPage() {
@@ -383,7 +387,7 @@ export default function PlayPage() {
             <button
               key={option.id}
               onClick={() => handleAnswer(option.id)}
-              className={`${optionColorsInteractive[index % 4]} text-white rounded-xl p-4 min-h-[80px] text-lg font-medium transition-transform active:scale-95 disabled:opacity-50`}
+              className={`${optionColorsInteractive[index % 6]} text-white rounded-xl p-4 min-h-[80px] text-lg font-medium transition-transform active:scale-95 disabled:opacity-50`}
               disabled={answered}
             >
               {option.text}
@@ -457,10 +461,10 @@ export default function PlayPage() {
                 key={option.id}
                 className={`rounded-xl p-4 min-h-[80px] text-white relative overflow-hidden transition-all duration-500 ${
                   isCorrect
-                    ? "ring-4 ring-emerald-400 " + optionColorsBg[index % 4]
+                    ? "ring-4 ring-emerald-400 " + optionColorsBg[index % 6]
                     : isMyChoice
-                      ? "ring-4 ring-red-400 opacity-60 " + optionColorsBg[index % 4]
-                      : "opacity-40 " + optionColorsBg[index % 4]
+                      ? "ring-4 ring-red-400 opacity-60 " + optionColorsBg[index % 6]
+                      : "opacity-40 " + optionColorsBg[index % 6]
                 }`}
               >
                 <div className="flex items-center justify-between">
