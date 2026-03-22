@@ -1,7 +1,26 @@
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/auth";
+
 export default function Home() {
+  const { user, isLoading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isLoading) {
+      if (user) {
+        router.push("/quizzes");
+      } else {
+        router.push("/login");
+      }
+    }
+  }, [user, isLoading, router]);
+
   return (
-    <main className="flex min-h-screen items-center justify-center">
-      <h1 className="text-4xl font-bold">Quiz Platform</h1>
-    </main>
+    <div className="flex min-h-screen items-center justify-center">
+      <div className="text-muted-foreground">Loading...</div>
+    </div>
   );
 }
