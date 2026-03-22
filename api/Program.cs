@@ -5,7 +5,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using QuizPlatform.Api.Data;
 using QuizPlatform.Api.Endpoints;
+using QuizPlatform.Api.Hubs;
 using QuizPlatform.Api.Models;
+using QuizPlatform.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -70,6 +72,7 @@ builder.Services.AddAuthorization();
 
 // SignalR
 builder.Services.AddSignalR();
+builder.Services.AddSingleton<SessionTimerService>();
 
 // OpenAPI
 builder.Services.AddOpenApi();
@@ -104,6 +107,7 @@ app.MapProfileEndpoints();
 app.MapUserEndpoints();
 app.MapQuizEndpoints();
 app.MapSessionEndpoints();
+app.MapHub<QuizHub>("/hubs/quiz");
 
 app.MapGet("/health", () => Results.Ok(new { status = "healthy" }));
 
