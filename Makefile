@@ -13,10 +13,10 @@ test:
 	cd api && dotnet test
 
 docker-up:
-	docker compose up --build -d
+	docker-compose up --build -d
 
 docker-down:
-	docker compose down
+	docker-compose down
 
 deploy:
-	docker compose -f docker-compose.yml up --build -d
+	docker-compose -f docker-compose.yml up --build -d
