@@ -186,6 +186,17 @@ public class QuizHub : Hub
 
         var response = new ParticipantResponse(participant.Id, participant.Nickname, participant.Score, participant.IsConnected, participant.Emoji, participant.Color);
         await Clients.Group(sessionId).SendAsync("ParticipantUpdated", response);
+
+        // Broadcast updated emoji availability to all players
+        var updatedTaken = await _db.Participants
+            .Where(p => p.SessionId == sessionGuid && p.IsConnected)
+            .Select(p => p.Emoji)
+            .ToListAsync();
+        await Clients.Group(sessionId).SendAsync("AvailableEmojis", new
+        {
+            all = AvatarConstants.Emojis,
+            taken = updatedTaken
+        });
     }
 
     public async Task GetAvailableEmojis(string sessionId)
