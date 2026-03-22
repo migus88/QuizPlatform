@@ -103,6 +103,7 @@ app.MapAuthEndpoints();
 app.MapProfileEndpoints();
 app.MapUserEndpoints();
 app.MapQuizEndpoints();
+app.MapSessionEndpoints();
 
 app.MapGet("/health", () => Results.Ok(new { status = "healthy" }));
 
