@@ -23,11 +23,9 @@ export const HubEvents = {
 } as const;
 
 export function createQuizConnection(): HubConnection {
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") ?? "" : "";
-
   return new HubConnectionBuilder()
     .withUrl(`${API_URL}/hubs/quiz`, {
-      accessTokenFactory: () => token,
+      accessTokenFactory: () => localStorage.getItem("token") ?? "",
     })
     .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
     .build();
