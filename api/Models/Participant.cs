@@ -8,6 +8,8 @@ public class Participant
     public string? UserId { get; set; }
     public string? ConnectionId { get; set; }
     public int Score { get; set; }
+    public string Emoji { get; set; } = string.Empty;
+    public string Color { get; set; } = string.Empty;
     public DateTime JoinedAt { get; set; } = DateTime.UtcNow;
     public bool IsConnected { get; set; } = true;
 

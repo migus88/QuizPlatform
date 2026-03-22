@@ -15,6 +15,7 @@ import type {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { PlayerAvatar } from "@/components/player-avatar";
 import { toast } from "sonner";
 import { Users, Play, Trophy, ArrowRight, ChevronRight } from "lucide-react";
 
@@ -142,6 +143,12 @@ export default function HostPage() {
           setHostState("finished");
         });
 
+        connection.on(HubEvents.PARTICIPANT_UPDATED, (participant: ParticipantResponse) => {
+          setParticipants((prev) =>
+            prev.map((p) => (p.id === participant.id ? participant : p))
+          );
+        });
+
         // Join as host
         await connection.invoke("JoinAsHost", params.id);
       } catch {
@@ -258,11 +265,12 @@ export default function HostPage() {
             <span className="font-medium">{participants.length} participant(s)</span>
           </div>
           {participants.length > 0 && (
-            <div className="flex flex-wrap justify-center gap-2">
+            <div className="flex flex-wrap justify-center gap-4">
               {participants.map((p) => (
-                <Badge key={p.id} variant={p.isConnected ? "default" : "secondary"}>
-                  {p.nickname}
-                </Badge>
+                <div key={p.id} className={`flex flex-col items-center gap-1 ${!p.isConnected ? "opacity-50" : ""}`}>
+                  <PlayerAvatar emoji={p.emoji} color={p.color} size="md" />
+                  <span className="text-xs font-medium">{p.nickname}</span>
+                </div>
               ))}
             </div>
           )}
@@ -389,29 +397,18 @@ export default function HostPage() {
   // LEADERBOARD
   if (hostState === "leaderboard") {
     const top5 = leaderboard.slice(0, 5);
-    const podiumColors = [
-      "bg-amber-400 text-amber-950",
-      "bg-gray-300 text-gray-800",
-      "bg-amber-700 text-amber-50",
-    ];
 
     return (
       <div className="max-w-2xl mx-auto text-center">
         <h2 className="text-3xl font-bold mb-8">Leaderboard</h2>
 
         <div className="space-y-3 mb-8">
-          {top5.map((entry, index) => (
+          {top5.map((entry) => (
             <Card key={entry.nickname}>
               <CardContent className="py-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <span
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                        index < 3 ? podiumColors[index] : "bg-muted"
-                      }`}
-                    >
-                      {entry.rank}
-                    </span>
+                    <PlayerAvatar emoji={entry.emoji} color={entry.color} size="sm" />
                     <span className="font-medium text-lg">{entry.nickname}</span>
                   </div>
                   <span className="font-mono font-bold text-lg">{entry.score}</span>
@@ -445,32 +442,19 @@ export default function HostPage() {
         <p className="text-muted-foreground mb-8">{session.quizTitle}</p>
 
         <div className="space-y-3 mb-8">
-          {leaderboard.map((entry, index) => {
-            const podiumColors = [
-              "bg-amber-400 text-amber-950",
-              "bg-gray-300 text-gray-800",
-              "bg-amber-700 text-amber-50",
-            ];
-            return (
+          {leaderboard.map((entry) => (
               <Card key={entry.nickname}>
                 <CardContent className="py-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <span
-                        className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                          index < 3 ? podiumColors[index] : "bg-muted"
-                        }`}
-                      >
-                        {entry.rank}
-                      </span>
+                      <PlayerAvatar emoji={entry.emoji} color={entry.color} size="sm" />
                       <span className="font-medium">{entry.nickname}</span>
                     </div>
                     <span className="font-mono font-bold">{entry.score}</span>
                   </div>
                 </CardContent>
               </Card>
-            );
-          })}
+          ))}
         </div>
 
         <Link href="/quizzes">

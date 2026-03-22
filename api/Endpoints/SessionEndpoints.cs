@@ -185,7 +185,7 @@ public static class SessionEndpoints
                 .OrderByDescending(p => p.Score)
                 .ToListAsync();
 
-            var leaderboard = participants.Select((p, i) => new LeaderboardEntry(i + 1, p.Nickname, p.Score)).ToList();
+            var leaderboard = participants.Select((p, i) => new LeaderboardEntry(i + 1, p.Nickname, p.Score, p.Emoji, p.Color)).ToList();
             return Results.Ok(leaderboard);
         }).RequireAuthorization();
     }

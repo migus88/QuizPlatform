@@ -21,6 +21,8 @@ export const HubEvents = {
   LEADERBOARD_UPDATED: "LeaderboardUpdated",
   SESSION_ENDED: "SessionEnded",
   ALREADY_ANSWERED: "AlreadyAnswered",
+  PARTICIPANT_UPDATED: "ParticipantUpdated",
+  AVAILABLE_EMOJIS: "AvailableEmojis",
 } as const;
 
 export function createQuizConnection(): HubConnection {

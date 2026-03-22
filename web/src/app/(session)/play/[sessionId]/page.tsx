@@ -7,6 +7,7 @@ import { useQuizHub, HubEvents } from "@/lib/signalr";
 import type { AnswerOptionResponse, LeaderboardEntry } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { PlayerAvatar } from "@/components/player-avatar";
 import { toast } from "sonner";
 import { Check, X, Trophy } from "lucide-react";
 
@@ -35,6 +36,8 @@ export default function PlayPage() {
 
   const [playState, setPlayState] = useState<PlayState>("waiting");
   const [nickname, setNickname] = useState("");
+  const [myEmoji, setMyEmoji] = useState("");
+  const [myColor, setMyColor] = useState("");
   const [participantCount, setParticipantCount] = useState(0);
   const [currentQuestion, setCurrentQuestion] = useState<QuestionData | null>(null);
   const [timer, setTimer] = useState(0);
@@ -49,7 +52,7 @@ export default function PlayPage() {
   const setupHub = useCallback(async () => {
     try {
       // Check for stored session info
-      let storedSession: { sessionId: string; participantId: string; nickname: string; joinCode: string } | null = null;
+      let storedSession: { sessionId: string; nickname: string; joinCode: string; emoji?: string; color?: string } | null = null;
       if (typeof window !== "undefined") {
         const stored = sessionStorage.getItem("quizSession");
         if (stored) {
@@ -59,6 +62,8 @@ export default function PlayPage() {
 
       if (storedSession) {
         setNickname(storedSession.nickname);
+        if (storedSession.emoji) setMyEmoji(storedSession.emoji);
+        if (storedSession.color) setMyColor(storedSession.color);
       }
 
       let connection = connectionRef.current;
@@ -183,10 +188,16 @@ export default function PlayPage() {
       <div className="w-full max-w-md text-center">
         <Card>
           <CardContent className="py-12">
-            <div className="animate-pulse mb-6">
-              <div className="w-16 h-16 rounded-full bg-primary/20 mx-auto flex items-center justify-center">
-                <div className="w-8 h-8 rounded-full bg-primary/40" />
-              </div>
+            <div className="mb-6 flex justify-center">
+              {myEmoji && myColor ? (
+                <PlayerAvatar emoji={myEmoji} color={myColor} size="lg" className="animate-pulse" />
+              ) : (
+                <div className="animate-pulse">
+                  <div className="w-16 h-16 rounded-full bg-primary/20 mx-auto flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-full bg-primary/40" />
+                  </div>
+                </div>
+              )}
             </div>
             <h2 className="text-2xl font-bold mb-2">
               {nickname || "Player"}
@@ -318,6 +329,7 @@ export default function PlayPage() {
                 <CardContent className="py-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
+                      <PlayerAvatar emoji={entry.emoji} color={entry.color} size="sm" />
                       <span className="w-6 text-sm font-bold">#{entry.rank}</span>
                       <span className={`font-medium ${isMe ? "text-primary" : ""}`}>
                         {entry.nickname}

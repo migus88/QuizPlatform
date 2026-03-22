@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using QuizPlatform.Api.Data;
 using QuizPlatform.Api.DTOs;
+using QuizPlatform.Api.Constants;
 using QuizPlatform.Api.Models;
 using QuizPlatform.Api.Services;
 
@@ -49,6 +50,15 @@ public class QuizHub : Hub
         }
         else
         {
+            // Assign emoji and color
+            var takenEmojis = session.Participants.Select(p => p.Emoji).ToHashSet();
+            var takenColors = session.Participants.Select(p => p.Color).ToHashSet();
+
+            var emoji = AvatarConstants.Emojis.FirstOrDefault(e => !takenEmojis.Contains(e))
+                ?? AvatarConstants.Emojis[session.Participants.Count % AvatarConstants.Emojis.Length];
+            var color = AvatarConstants.Colors.FirstOrDefault(c => !takenColors.Contains(c))
+                ?? AvatarConstants.Colors[session.Participants.Count % AvatarConstants.Colors.Length];
+
             // New participant
             participant = new Participant
             {
@@ -56,6 +66,8 @@ public class QuizHub : Hub
                 SessionId = session.Id,
                 Nickname = nickname,
                 ConnectionId = Context.ConnectionId,
+                Emoji = emoji,
+                Color = color,
                 JoinedAt = DateTime.UtcNow
             };
 
@@ -69,7 +81,7 @@ public class QuizHub : Hub
         await _db.SaveChangesAsync();
         await Groups.AddToGroupAsync(Context.ConnectionId, session.Id.ToString());
 
-        var participantResponse = new ParticipantResponse(participant.Id, participant.Nickname, participant.Score, true);
+        var participantResponse = new ParticipantResponse(participant.Id, participant.Nickname, participant.Score, true, participant.Emoji, participant.Color);
 
         // Notify the group
         await Clients.Group(session.Id.ToString()).SendAsync("ParticipantJoined", participantResponse);
@@ -82,7 +94,7 @@ public class QuizHub : Hub
 
         var participants = session.Participants
             .Where(p => p.IsConnected)
-            .Select(p => new ParticipantResponse(p.Id, p.Nickname, p.Score, p.IsConnected))
+            .Select(p => new ParticipantResponse(p.Id, p.Nickname, p.Score, p.IsConnected, p.Emoji, p.Color))
             .ToList();
 
         await Clients.Caller.SendAsync("JoinedSession", sessionResponse, participantResponse, participants);
@@ -141,6 +153,47 @@ public class QuizHub : Hub
         }
 
         await Groups.AddToGroupAsync(Context.ConnectionId, sessionId);
+    }
+
+    public async Task ChangeEmoji(string sessionId, string newEmoji)
+    {
+        var sessionGuid = Guid.Parse(sessionId);
+
+        if (!AvatarConstants.Emojis.Contains(newEmoji))
+        {
+            await Clients.Caller.SendAsync("Error", "Invalid emoji");
+            return;
+        }
+
+        var participant = await _db.Participants
+            .FirstOrDefaultAsync(p => p.ConnectionId == Context.ConnectionId && p.SessionId == sessionGuid);
+        if (participant is null) return;
+
+        var taken = await _db.Participants
+            .AnyAsync(p => p.SessionId == sessionGuid && p.Id != participant.Id && p.Emoji == newEmoji);
+        if (taken)
+        {
+            await Clients.Caller.SendAsync("Error", "Emoji already taken");
+            return;
+        }
+
+        participant.Emoji = newEmoji;
+        await _db.SaveChangesAsync();
+
+        var response = new ParticipantResponse(participant.Id, participant.Nickname, participant.Score, participant.IsConnected, participant.Emoji, participant.Color);
+        await Clients.Group(sessionId).SendAsync("ParticipantUpdated", response);
+    }
+
+    public async Task GetAvailableEmojis(string sessionId)
+    {
+        var sessionGuid = Guid.Parse(sessionId);
+        var takenEmojis = await _db.Participants
+            .Where(p => p.SessionId == sessionGuid)
+            .Select(p => p.Emoji)
+            .ToListAsync();
+
+        var available = AvatarConstants.Emojis.Where(e => !takenEmojis.Contains(e)).ToList();
+        await Clients.Caller.SendAsync("AvailableEmojis", available);
     }
 
     public async Task SubmitAnswer(string sessionId, string questionId, string answerOptionId)
@@ -312,7 +365,7 @@ public class QuizHub : Hub
             .ToListAsync();
 
         var leaderboard = participants.Select((p, i) =>
-            new LeaderboardEntry(i + 1, p.Nickname, p.Score)).ToList();
+            new LeaderboardEntry(i + 1, p.Nickname, p.Score, p.Emoji, p.Color)).ToList();
 
         await Clients.Group(sessionId).SendAsync("LeaderboardUpdated", leaderboard);
     }

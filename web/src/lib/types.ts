@@ -137,12 +137,16 @@ export interface ParticipantResponse {
   nickname: string;
   score: number;
   isConnected: boolean;
+  emoji: string;
+  color: string;
 }
 
 export interface LeaderboardEntry {
   rank: number;
   nickname: string;
   score: number;
+  emoji: string;
+  color: string;
 }
 
 export interface SubmitAnswerRequest {
