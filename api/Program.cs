@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using QuizPlatform.Api.Data;
+using QuizPlatform.Api.Endpoints;
 using QuizPlatform.Api.Models;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -97,6 +98,9 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
+
+app.MapAuthEndpoints();
+app.MapProfileEndpoints();
 
 app.MapGet("/health", () => Results.Ok(new { status = "healthy" }));
 
