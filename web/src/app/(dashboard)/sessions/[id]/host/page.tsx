@@ -180,15 +180,6 @@ export default function HostPage() {
     }
   };
 
-  const handleRevealAnswer = async () => {
-    if (!session || !connectionRef.current) return;
-    try {
-      await connectionRef.current.invoke("RevealAnswer", session.id);
-    } catch {
-      toast.error("Failed to reveal answer");
-    }
-  };
-
   const handleShowLeaderboard = async () => {
     if (!session || !connectionRef.current) return;
     try {
@@ -324,11 +315,9 @@ export default function HostPage() {
           ))}
         </div>
 
-        <div className="text-center">
-          <Button size="lg" onClick={handleRevealAnswer}>
-            Reveal Answer
-          </Button>
-        </div>
+        <p className="text-center text-sm text-muted-foreground">
+          Answers will be revealed automatically
+        </p>
       </div>
     );
   }

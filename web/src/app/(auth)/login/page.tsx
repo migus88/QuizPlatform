@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,6 +70,12 @@ export default function LoginPage() {
             <Button type="submit" className="w-full" disabled={isSubmitting}>
               {isSubmitting ? "Signing in..." : "Sign In"}
             </Button>
+            <p className="text-center text-sm text-muted-foreground mt-4">
+              Want to join a quiz?{" "}
+              <Link href="/join" className="text-primary hover:underline">
+                Join here
+              </Link>
+            </p>
           </form>
         </CardContent>
       </Card>

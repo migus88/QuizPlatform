@@ -14,11 +14,15 @@ public class QuizHub : Hub
 {
     private readonly AppDbContext _db;
     private readonly SessionTimerService _timerService;
+    private readonly IHubContext<QuizHub> _hubContext;
+    private readonly IServiceScopeFactory _scopeFactory;
 
-    public QuizHub(AppDbContext db, SessionTimerService timerService)
+    public QuizHub(AppDbContext db, SessionTimerService timerService, IHubContext<QuizHub> hubContext, IServiceScopeFactory scopeFactory)
     {
         _db = db;
         _timerService = timerService;
+        _hubContext = hubContext;
+        _scopeFactory = scopeFactory;
     }
 
     public async Task JoinSession(string joinCode, string nickname)
@@ -51,7 +55,7 @@ public class QuizHub : Hub
         else
         {
             // Assign emoji and color
-            var takenEmojis = session.Participants.Select(p => p.Emoji).ToHashSet();
+            var takenEmojis = session.Participants.Where(p => p.IsConnected).Select(p => p.Emoji).ToHashSet();
             var takenColors = session.Participants.Select(p => p.Color).ToHashSet();
 
             var emoji = AvatarConstants.Emojis.FirstOrDefault(e => !takenEmojis.Contains(e))
@@ -170,7 +174,7 @@ public class QuizHub : Hub
         if (participant is null) return;
 
         var taken = await _db.Participants
-            .AnyAsync(p => p.SessionId == sessionGuid && p.Id != participant.Id && p.Emoji == newEmoji);
+            .AnyAsync(p => p.SessionId == sessionGuid && p.Id != participant.Id && p.IsConnected && p.Emoji == newEmoji);
         if (taken)
         {
             await Clients.Caller.SendAsync("Error", "Emoji already taken");
@@ -188,12 +192,15 @@ public class QuizHub : Hub
     {
         var sessionGuid = Guid.Parse(sessionId);
         var takenEmojis = await _db.Participants
-            .Where(p => p.SessionId == sessionGuid)
+            .Where(p => p.SessionId == sessionGuid && p.IsConnected)
             .Select(p => p.Emoji)
             .ToListAsync();
 
-        var available = AvatarConstants.Emojis.Where(e => !takenEmojis.Contains(e)).ToList();
-        await Clients.Caller.SendAsync("AvailableEmojis", available);
+        await Clients.Caller.SendAsync("AvailableEmojis", new
+        {
+            all = AvatarConstants.Emojis,
+            taken = takenEmojis
+        });
     }
 
     public async Task SubmitAnswer(string sessionId, string questionId, string answerOptionId)
@@ -246,7 +253,7 @@ public class QuizHub : Hub
         participant.Score += awardedPoints;
         await _db.SaveChangesAsync();
 
-        // Notify caller of their result
+        // Notify caller of their result (stored but not shown until reveal)
         await Clients.Caller.SendAsync("AnswerResult", new { isCorrect, awardedPoints, newScore = participant.Score });
 
         // Notify group of submission count
@@ -255,6 +262,13 @@ public class QuizHub : Hub
         var totalParticipants = await _db.Participants.CountAsync(p => p.SessionId == sessionGuid && p.IsConnected);
 
         await Clients.Group(sessionId).SendAsync("AnswerSubmitted", new { totalAnswered, totalParticipants });
+
+        // Auto-reveal if all participants have answered
+        if (totalAnswered >= totalParticipants)
+        {
+            _timerService.CancelTimer(sessionGuid);
+            await RevealAnswerInternal(sessionGuid);
+        }
     }
 
     public async Task StartQuestion(string sessionId)
@@ -289,10 +303,12 @@ public class QuizHub : Hub
             })
         };
 
-        await Clients.Group(sessionId).SendAsync("QuestionStarted", questionData);
+        await _hubContext.Clients.Group(sessionId).SendAsync("QuestionStarted", questionData);
 
         // Start timer
         var cancellationToken = _timerService.StartTimer(sessionGuid);
+        var scopeFactory = _scopeFactory;
+        var hubContext = _hubContext;
 
         _ = Task.Run(async () =>
         {
@@ -301,14 +317,16 @@ public class QuizHub : Hub
                 for (int remaining = question.TimeLimitSeconds; remaining >= 0; remaining--)
                 {
                     if (cancellationToken.IsCancellationRequested) break;
-                    await Clients.Group(sessionId).SendAsync("TimerTick", remaining);
+                    await hubContext.Clients.Group(sessionId).SendAsync("TimerTick", remaining);
                     if (remaining > 0)
                         await Task.Delay(1000, cancellationToken);
                 }
 
                 if (!cancellationToken.IsCancellationRequested)
                 {
-                    await Clients.Group(sessionId).SendAsync("QuestionEnded", question.Id.ToString());
+                    await hubContext.Clients.Group(sessionId).SendAsync("QuestionEnded", question.Id.ToString());
+                    // Auto-reveal when time is up
+                    await RevealAnswerWithScope(scopeFactory, hubContext, sessionGuid);
                 }
             }
             catch (OperationCanceledException) { }
@@ -322,37 +340,10 @@ public class QuizHub : Hub
 
         _timerService.CancelTimer(sessionGuid);
 
-        var session = await _db.Sessions
-            .Include(s => s.Quiz)
-                .ThenInclude(q => q.Questions.OrderBy(qu => qu.Order))
-                    .ThenInclude(q => q.AnswerOptions)
-            .FirstOrDefaultAsync(s => s.Id == sessionGuid);
-
+        var session = await _db.Sessions.FirstOrDefaultAsync(s => s.Id == sessionGuid);
         if (session is null || session.CreatedByUserId != userId) return;
 
-        var question = session.Quiz.Questions.ElementAtOrDefault(session.CurrentQuestionIndex);
-        if (question is null) return;
-
-        // Get answer distribution
-        var answers = await _db.ParticipantAnswers
-            .Where(a => a.QuestionId == question.Id &&
-                _db.Participants.Any(p => p.Id == a.ParticipantId && p.SessionId == sessionGuid))
-            .ToListAsync();
-
-        var revealData = new
-        {
-            questionId = question.Id,
-            correctOptionId = question.AnswerOptions.First(a => a.IsCorrect).Id,
-            options = question.AnswerOptions.OrderBy(a => a.Order).Select(a => new
-            {
-                id = a.Id,
-                text = a.Text,
-                isCorrect = a.IsCorrect,
-                count = answers.Count(ans => ans.SelectedAnswerOptionId == a.Id)
-            })
-        };
-
-        await Clients.Group(sessionId).SendAsync("AnswerRevealed", revealData);
+        await RevealAnswerInternal(sessionGuid);
     }
 
     public async Task ShowLeaderboard(string sessionId)
@@ -384,8 +375,85 @@ public class QuizHub : Hub
 
             await Clients.Group(participant.SessionId.ToString())
                 .SendAsync("ParticipantDisconnected", participant.Nickname);
+
+            // Broadcast updated emoji availability so other players can pick released emojis
+            var takenEmojis = await _db.Participants
+                .Where(p => p.SessionId == participant.SessionId && p.IsConnected)
+                .Select(p => p.Emoji)
+                .ToListAsync();
+            await Clients.Group(participant.SessionId.ToString())
+                .SendAsync("AvailableEmojis", new { all = AvatarConstants.Emojis, taken = takenEmojis });
         }
 
         await base.OnDisconnectedAsync(exception);
+    }
+
+    private async Task RevealAnswerInternal(Guid sessionId)
+    {
+        var session = await _db.Sessions
+            .Include(s => s.Quiz)
+                .ThenInclude(q => q.Questions.OrderBy(qu => qu.Order))
+                    .ThenInclude(q => q.AnswerOptions)
+            .FirstOrDefaultAsync(s => s.Id == sessionId);
+        if (session is null) return;
+
+        var question = session.Quiz.Questions.ElementAtOrDefault(session.CurrentQuestionIndex);
+        if (question is null) return;
+
+        var answers = await _db.ParticipantAnswers
+            .Where(a => a.QuestionId == question.Id &&
+                _db.Participants.Any(p => p.Id == a.ParticipantId && p.SessionId == sessionId))
+            .ToListAsync();
+
+        var revealData = new
+        {
+            questionId = question.Id,
+            correctOptionId = question.AnswerOptions.First(a => a.IsCorrect).Id,
+            options = question.AnswerOptions.OrderBy(a => a.Order).Select(a => new
+            {
+                id = a.Id,
+                text = a.Text,
+                isCorrect = a.IsCorrect,
+                count = answers.Count(ans => ans.SelectedAnswerOptionId == a.Id)
+            })
+        };
+
+        await _hubContext.Clients.Group(sessionId.ToString()).SendAsync("AnswerRevealed", revealData);
+    }
+
+    private static async Task RevealAnswerWithScope(IServiceScopeFactory scopeFactory, IHubContext<QuizHub> hubContext, Guid sessionId)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var session = await db.Sessions
+            .Include(s => s.Quiz)
+                .ThenInclude(q => q.Questions.OrderBy(qu => qu.Order))
+                    .ThenInclude(q => q.AnswerOptions)
+            .FirstOrDefaultAsync(s => s.Id == sessionId);
+        if (session is null) return;
+
+        var question = session.Quiz.Questions.ElementAtOrDefault(session.CurrentQuestionIndex);
+        if (question is null) return;
+
+        var answers = await db.ParticipantAnswers
+            .Where(a => a.QuestionId == question.Id &&
+                db.Participants.Any(p => p.Id == a.ParticipantId && p.SessionId == sessionId))
+            .ToListAsync();
+
+        var revealData = new
+        {
+            questionId = question.Id,
+            correctOptionId = question.AnswerOptions.First(a => a.IsCorrect).Id,
+            options = question.AnswerOptions.OrderBy(a => a.Order).Select(a => new
+            {
+                id = a.Id,
+                text = a.Text,
+                isCorrect = a.IsCorrect,
+                count = answers.Count(ans => ans.SelectedAnswerOptionId == a.Id)
+            })
+        };
+
+        await hubContext.Clients.Group(sessionId.ToString()).SendAsync("AnswerRevealed", revealData);
     }
 }
