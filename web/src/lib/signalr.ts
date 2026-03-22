@@ -3,7 +3,7 @@
 import { HubConnectionBuilder, HubConnection, HubConnectionState } from "@microsoft/signalr";
 import { useEffect, useRef, useState, useCallback } from "react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5063";
 
 // Event names
 export const HubEvents = {

@@ -17,7 +17,7 @@ import type {
   UserResponse,
 } from "./types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5063";
 
 class ApiClient {
   private getHeaders(): HeadersInit {
