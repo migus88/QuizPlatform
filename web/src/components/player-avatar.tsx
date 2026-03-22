@@ -1,29 +1,40 @@
 import { cn } from "@/lib/utils";
 
 const sizes = {
-  sm: "w-8 h-8 text-lg",
-  md: "w-12 h-12 text-2xl",
-  lg: "w-16 h-16 text-3xl",
+  sm: "text-3xl",
+  md: "text-5xl",
+  lg: "text-7xl",
 };
 
 interface PlayerAvatarProps {
   emoji: string;
-  color: string;
   size?: "sm" | "md" | "lg";
   className?: string;
 }
 
-export function PlayerAvatar({ emoji, color, size = "md", className }: PlayerAvatarProps) {
+export function PlayerAvatar({ emoji, size = "md", className }: PlayerAvatarProps) {
   return (
-    <div
+    <span
       className={cn(
-        "rounded-full flex items-center justify-center shrink-0",
+        "inline-flex items-center justify-center shrink-0 leading-none",
         sizes[size],
         className
       )}
-      style={{ backgroundColor: color }}
     >
       {emoji}
-    </div>
+    </span>
+  );
+}
+
+const medals = ["🥇", "🥈", "🥉"];
+
+export function RankBadge({ rank }: { rank: number }) {
+  if (rank <= 3) {
+    return <span className="text-2xl leading-none">{medals[rank - 1]}</span>;
+  }
+  return (
+    <span className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-sm font-bold">
+      {rank}
+    </span>
   );
 }

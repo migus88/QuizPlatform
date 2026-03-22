@@ -7,7 +7,7 @@ import { useQuizHub, HubEvents } from "@/lib/signalr";
 import type { AnswerOptionResponse, LeaderboardEntry, ParticipantResponse } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { PlayerAvatar } from "@/components/player-avatar";
+import { PlayerAvatar, RankBadge } from "@/components/player-avatar";
 import { toast } from "sonner";
 import { Check, X, Trophy } from "lucide-react";
 
@@ -272,8 +272,8 @@ export default function PlayPage() {
         <Card>
           <CardContent className="py-8">
             <div className="mb-4 flex justify-center">
-              {myEmoji && myColor ? (
-                <PlayerAvatar emoji={myEmoji} color={myColor} size="lg" />
+              {myEmoji ? (
+                <PlayerAvatar emoji={myEmoji} size="lg" />
               ) : (
                 <div className="animate-pulse">
                   <div className="w-16 h-16 rounded-full bg-primary/20 mx-auto flex items-center justify-center">
@@ -502,7 +502,8 @@ export default function PlayPage() {
                 <CardContent className="py-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <PlayerAvatar emoji={entry.emoji} color={entry.color} size="sm" />
+                      <RankBadge rank={entry.rank} />
+                      <PlayerAvatar emoji={entry.emoji} size="sm" />
                       <span className="w-6 text-sm font-bold">#{entry.rank}</span>
                       <span className={`font-medium ${isMe ? "text-primary" : ""}`}>
                         {entry.nickname}

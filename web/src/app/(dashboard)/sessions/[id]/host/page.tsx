@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api-client";
@@ -9,17 +9,16 @@ import type {
   SessionResponse,
   ParticipantResponse,
   LeaderboardEntry,
-  QuestionResponse,
   AnswerOptionResponse,
 } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { PlayerAvatar } from "@/components/player-avatar";
+import { PlayerAvatar, RankBadge } from "@/components/player-avatar";
 import { toast } from "sonner";
-import { Users, Play, Trophy, ArrowRight, ChevronRight } from "lucide-react";
+import { Users, Play, Trophy, ArrowRight, ChevronRight, Check } from "lucide-react";
 
-type HostState = "lobby" | "question" | "reveal" | "leaderboard" | "finished";
+type HostState = "lobby" | "question" | "revealing" | "reveal" | "leaderboard" | "finished";
 
 interface QuestionData {
   id: string;
@@ -30,9 +29,24 @@ interface QuestionData {
   totalQuestions: number;
 }
 
-interface AnswerDistribution {
-  [optionId: string]: number;
+interface RevealData {
+  correctOptionId: string;
+  options: { id: string; text: string; isCorrect: boolean; count: number }[];
 }
+
+const optionColors = [
+  "bg-red-500 text-white",
+  "bg-blue-500 text-white",
+  "bg-emerald-500 text-white",
+  "bg-amber-500 text-white",
+];
+
+const optionColorsBg = [
+  "bg-red-500",
+  "bg-blue-500",
+  "bg-emerald-500",
+  "bg-amber-500",
+];
 
 export default function HostPage() {
   const params = useParams<{ id: string }>();
@@ -45,31 +59,32 @@ export default function HostPage() {
   const [participants, setParticipants] = useState<ParticipantResponse[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState<QuestionData | null>(null);
   const [timer, setTimer] = useState(0);
+  const [maxTime, setMaxTime] = useState(0);
   const [answerCount, setAnswerCount] = useState(0);
-  const [correctOptionId, setCorrectOptionId] = useState<string | null>(null);
-  const [distribution, setDistribution] = useState<AnswerDistribution>({});
+  const [revealData, setRevealData] = useState<RevealData | null>(null);
+  const [revealMessage, setRevealMessage] = useState("");
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const loadSession = useCallback(async () => {
-    try {
-      const data = await api.sessions.getById(params.id);
-      setSession(data);
-      if (data.status === "Finished") {
-        setHostState("finished");
-        const lb = await api.sessions.leaderboard(params.id);
-        setLeaderboard(lb);
-      }
-    } catch {
-      toast.error("Failed to load session");
-      router.push("/quizzes");
-    } finally {
-      setLoading(false);
-    }
-  }, [params.id, router]);
-
   useEffect(() => {
     let cancelled = false;
+
+    const loadSession = async () => {
+      try {
+        const data = await api.sessions.getById(params.id);
+        setSession(data);
+        if (data.status === "Finished") {
+          setHostState("finished");
+          const lb = await api.sessions.leaderboard(params.id);
+          setLeaderboard(lb);
+        }
+      } catch {
+        toast.error("Failed to load session");
+        router.push("/quizzes");
+      } finally {
+        setLoading(false);
+      }
+    };
 
     loadSession();
 
@@ -104,9 +119,10 @@ export default function HostPage() {
           }) => {
             setCurrentQuestion(data);
             setTimer(data.timeLimitSeconds);
+            setMaxTime(data.timeLimitSeconds);
             setAnswerCount(0);
-            setCorrectOptionId(null);
-            setDistribution({});
+            setRevealData(null);
+            setRevealMessage("");
             setHostState("question");
           }
         );
@@ -120,17 +136,19 @@ export default function HostPage() {
         });
 
         connection.on(HubEvents.QUESTION_ENDED, () => {
-          // Timer ended, enable reveal
+          // Wait for auto-reveal
         });
 
         connection.on(
           HubEvents.ANSWER_REVEALED,
-          (data: { correctOptionId: string; options: { id: string; count: number }[] }) => {
-            setCorrectOptionId(data.correctOptionId);
-            const dist: AnswerDistribution = {};
-            data.options.forEach((opt) => { dist[opt.id] = opt.count; });
-            setDistribution(dist);
-            setHostState("reveal");
+          (data: RevealData) => {
+            setRevealData(data);
+            const totalAnswers = data.options.reduce((sum, o) => sum + o.count, 0);
+            setRevealMessage(totalAnswers > 0 ? "All answers are in!" : "Time's up!");
+            setHostState("revealing");
+            setTimeout(() => {
+              setHostState("reveal");
+            }, 3000);
           }
         );
 
@@ -149,7 +167,6 @@ export default function HostPage() {
           );
         });
 
-        // Join as host
         await connection.invoke("JoinAsHost", params.id);
       } catch {
         if (!cancelled) {
@@ -158,15 +175,13 @@ export default function HostPage() {
       }
     };
 
-    // Defer connection to avoid React strict mode double-mount causing
-    // a connection to be started and immediately stopped during negotiation
-    const timer = setTimeout(setupHub, 0);
+    const t = setTimeout(setupHub, 0);
 
     return () => {
       cancelled = true;
-      clearTimeout(timer);
+      clearTimeout(t);
     };
-  }, [loadSession, startConnection, params.id]);
+  }, [params.id, router, startConnection]);
 
   const handleStartSession = async () => {
     if (!session) return;
@@ -217,20 +232,6 @@ export default function HostPage() {
 
   if (!session) return null;
 
-  const optionColors = [
-    "bg-red-500 text-white",
-    "bg-blue-500 text-white",
-    "bg-emerald-500 text-white",
-    "bg-amber-500 text-white",
-  ];
-
-  const optionColorsBg = [
-    "bg-red-500",
-    "bg-blue-500",
-    "bg-emerald-500",
-    "bg-amber-500",
-  ];
-
   // LOBBY
   if (hostState === "lobby") {
     return (
@@ -256,11 +257,11 @@ export default function HostPage() {
             <span className="font-medium">{participants.length} participant(s)</span>
           </div>
           {participants.length > 0 && (
-            <div className="flex flex-wrap justify-center gap-4">
+            <div className="flex flex-wrap justify-center gap-6">
               {participants.map((p) => (
                 <div key={p.id} className={`flex flex-col items-center gap-1 ${!p.isConnected ? "opacity-50" : ""}`}>
-                  <PlayerAvatar emoji={p.emoji} color={p.color} size="md" />
-                  <span className="text-xs font-medium">{p.nickname}</span>
+                  <PlayerAvatar emoji={p.emoji} size="md" />
+                  <span className="text-sm font-medium">{p.nickname}</span>
                 </div>
               ))}
             </div>
@@ -298,6 +299,19 @@ export default function HostPage() {
           </div>
         </div>
 
+        {/* Smooth timer bar */}
+        <div className="w-full bg-muted rounded-full h-2 mb-6 overflow-hidden">
+          <div
+            className="h-2 rounded-full bg-primary"
+            style={{
+              width: "100%",
+              transform: `scaleX(${maxTime > 0 ? timer / maxTime : 0})`,
+              transformOrigin: "left",
+              transition: "transform 1s linear",
+            }}
+          />
+        </div>
+
         <Card className="mb-6">
           <CardContent className="py-8">
             <h2 className="text-2xl font-bold text-center">{currentQuestion.text}</h2>
@@ -322,15 +336,31 @@ export default function HostPage() {
     );
   }
 
+  // REVEALING - transition screen
+  if (hostState === "revealing") {
+    return (
+      <div className="max-w-4xl mx-auto flex items-center justify-center min-h-[400px]">
+        <div className="text-center animate-in fade-in zoom-in duration-700">
+          <p className="text-7xl mb-6">
+            {revealMessage.includes("Time") ? "⏰" : "✅"}
+          </p>
+          <h2 className="text-5xl font-bold animate-in slide-in-from-bottom duration-500">
+            {revealMessage}
+          </h2>
+        </div>
+      </div>
+    );
+  }
+
   // ANSWER REVEAL
-  if (hostState === "reveal" && currentQuestion) {
+  if (hostState === "reveal" && currentQuestion && revealData) {
     const sortedOptions = [...currentQuestion.options].sort(
       (a, b) => a.order - b.order
     );
-    const maxVotes = Math.max(1, ...Object.values(distribution));
+    const maxVotes = Math.max(1, ...revealData.options.map((o) => o.count));
 
     return (
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom duration-500">
         <div className="mb-4">
           <Badge variant="outline">
             Question {currentQuestion.questionNumber} of {currentQuestion.totalQuestions}
@@ -345,26 +375,30 @@ export default function HostPage() {
 
         <div className="grid grid-cols-2 gap-4 mb-6">
           {sortedOptions.map((option, index) => {
-            const isCorrect = option.id === correctOptionId;
-            const votes = distribution[option.id] || 0;
+            const revealOption = revealData.options.find((o) => o.id === option.id);
+            const isCorrect = revealOption?.isCorrect ?? false;
+            const votes = revealOption?.count ?? 0;
             return (
               <div
                 key={option.id}
-                className={`rounded-lg p-4 border-2 ${
+                className={`rounded-lg p-4 border-2 transition-all duration-500 ${
                   isCorrect
                     ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950"
                     : "border-muted bg-muted/50 opacity-60"
                 }`}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className={`font-medium ${isCorrect ? "text-emerald-700 dark:text-emerald-300" : ""}`}>
-                    {String.fromCharCode(65 + index)}. {option.text}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {isCorrect && <Check className="w-5 h-5 text-emerald-500" />}
+                    <span className={`font-medium ${isCorrect ? "text-emerald-700 dark:text-emerald-300" : ""}`}>
+                      {String.fromCharCode(65 + index)}. {option.text}
+                    </span>
+                  </div>
                   <span className="text-sm font-mono">{votes}</span>
                 </div>
                 <div className="w-full bg-muted rounded-full h-2">
                   <div
-                    className={`h-2 rounded-full transition-all ${optionColorsBg[index % 4]}`}
+                    className={`h-2 rounded-full transition-all duration-1000 ${optionColorsBg[index % 4]}`}
                     style={{ width: `${(votes / maxVotes) * 100}%` }}
                   />
                 </div>
@@ -397,7 +431,8 @@ export default function HostPage() {
               <CardContent className="py-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <PlayerAvatar emoji={entry.emoji} color={entry.color} size="sm" />
+                    <RankBadge rank={entry.rank} />
+                    <PlayerAvatar emoji={entry.emoji} size="sm" />
                     <span className="font-medium text-lg">{entry.nickname}</span>
                   </div>
                   <span className="font-mono font-bold text-lg">{entry.score}</span>
@@ -432,17 +467,18 @@ export default function HostPage() {
 
         <div className="space-y-3 mb-8">
           {leaderboard.map((entry) => (
-              <Card key={entry.nickname}>
-                <CardContent className="py-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <PlayerAvatar emoji={entry.emoji} color={entry.color} size="sm" />
-                      <span className="font-medium">{entry.nickname}</span>
-                    </div>
-                    <span className="font-mono font-bold">{entry.score}</span>
+            <Card key={entry.nickname}>
+              <CardContent className="py-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <RankBadge rank={entry.rank} />
+                    <PlayerAvatar emoji={entry.emoji} size="sm" />
+                    <span className="font-medium">{entry.nickname}</span>
                   </div>
-                </CardContent>
-              </Card>
+                  <span className="font-mono font-bold">{entry.score}</span>
+                </div>
+              </CardContent>
+            </Card>
           ))}
         </div>
 
