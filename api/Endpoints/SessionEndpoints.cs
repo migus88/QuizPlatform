@@ -1,7 +1,9 @@
 using System.Security.Claims;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using QuizPlatform.Api.Data;
 using QuizPlatform.Api.DTOs;
+using QuizPlatform.Api.Hubs;
 using QuizPlatform.Api.Models;
 
 namespace QuizPlatform.Api.Endpoints;
@@ -14,7 +16,24 @@ public static class SessionEndpoints
     {
         var group = routes.MapGroup("/api/sessions").WithTags("Sessions");
 
-        // Create session (auth required)
+        // Get my active (non-finished) sessions
+        group.MapGet("/my-active", async (ClaimsPrincipal principal, AppDbContext db) =>
+        {
+            var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            var sessions = await db.Sessions
+                .Include(s => s.Quiz)
+                .Include(s => s.Participants)
+                .Where(s => s.CreatedByUserId == userId && s.Status != SessionStatus.Finished)
+                .OrderByDescending(s => s.StartedAt ?? DateTime.MinValue)
+                .ToListAsync();
+
+            return Results.Ok(sessions.Select(s => new SessionResponse(
+                s.Id, s.QuizId, s.Quiz.Title, s.JoinCode,
+                s.Status.ToString(), s.CurrentQuestionIndex,
+                s.Participants.Count, s.StartedAt, s.EndedAt)));
+        }).RequireAuthorization();
+
+        // Create session (auth required) - returns existing active session if one exists
         group.MapPost("/", async (CreateSessionRequest request, ClaimsPrincipal principal, AppDbContext db) =>
         {
             var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier)!;
@@ -23,6 +42,24 @@ public static class SessionEndpoints
             if (quiz is null) return Results.NotFound("Quiz not found");
             if (!quiz.IsPublished) return Results.BadRequest("Quiz must be published to create a session");
             if (!quiz.Questions.Any()) return Results.BadRequest("Quiz must have at least one question");
+
+            // Check for existing active session
+            var existingSession = await db.Sessions
+                .Include(s => s.Participants)
+                .FirstOrDefaultAsync(s =>
+                    s.QuizId == request.QuizId
+                    && s.CreatedByUserId == userId
+                    && s.Status != SessionStatus.Finished);
+
+            if (existingSession is not null)
+            {
+                return Results.Ok(new SessionResponse(
+                    existingSession.Id, existingSession.QuizId, quiz.Title,
+                    existingSession.JoinCode, existingSession.Status.ToString(),
+                    existingSession.CurrentQuestionIndex,
+                    existingSession.Participants.Count,
+                    existingSession.StartedAt, existingSession.EndedAt));
+            }
 
             string joinCode;
             do
@@ -120,7 +157,7 @@ public static class SessionEndpoints
         }).RequireAuthorization();
 
         // Finish session
-        group.MapPost("/{id:guid}/finish", async (Guid id, ClaimsPrincipal principal, AppDbContext db) =>
+        group.MapPost("/{id:guid}/finish", async (Guid id, ClaimsPrincipal principal, AppDbContext db, IHubContext<QuizHub> hubContext) =>
         {
             var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier)!;
             var session = await db.Sessions.Include(s => s.Quiz).Include(s => s.Participants).FirstOrDefaultAsync(s => s.Id == id);
@@ -130,6 +167,9 @@ public static class SessionEndpoints
             session.Status = SessionStatus.Finished;
             session.EndedAt = DateTime.UtcNow;
             await db.SaveChangesAsync();
+
+            // Notify all connected clients in the session
+            await hubContext.Clients.Group(id.ToString()).SendAsync("SessionEnded");
 
             return Results.Ok(new SessionResponse(
                 session.Id, session.QuizId, session.Quiz.Title, session.JoinCode,

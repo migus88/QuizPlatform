@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api-client";
-import type { QuizListResponse } from "@/lib/types";
+import type { QuizListResponse, SessionResponse } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -23,18 +23,28 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Play } from "lucide-react";
+import { Plus, Pencil, Trash2, Play, Square } from "lucide-react";
 
 export default function QuizzesPage() {
   const [quizzes, setQuizzes] = useState<QuizListResponse[]>([]);
+  const [activeSessions, setActiveSessions] = useState<Record<string, SessionResponse>>({});
   const [loading, setLoading] = useState(true);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [stopSessionId, setStopSessionId] = useState<string | null>(null);
   const router = useRouter();
 
   const loadQuizzes = async () => {
     try {
-      const data = await api.quizzes.list();
-      setQuizzes(data);
+      const [quizData, sessionData] = await Promise.all([
+        api.quizzes.list(),
+        api.sessions.getMyActive(),
+      ]);
+      setQuizzes(quizData);
+      const sessionMap: Record<string, SessionResponse> = {};
+      for (const session of sessionData) {
+        sessionMap[session.quizId] = session;
+      }
+      setActiveSessions(sessionMap);
     } catch {
       toast.error("Failed to load quizzes");
     } finally {
@@ -64,6 +74,18 @@ export default function QuizzesPage() {
       router.push(`/sessions/${session.id}/host`);
     } catch {
       toast.error("Failed to create session");
+    }
+  };
+
+  const handleStopSession = async () => {
+    if (!stopSessionId) return;
+    try {
+      await api.sessions.finish(stopSessionId);
+      toast.success("Session stopped");
+      setStopSessionId(null);
+      loadQuizzes();
+    } catch {
+      toast.error("Failed to stop session");
     }
   };
 
@@ -103,39 +125,70 @@ export default function QuizzesPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {quizzes.map((quiz) => (
-              <TableRow key={quiz.id}>
-                <TableCell className="font-medium">{quiz.title}</TableCell>
-                <TableCell>
-                  <Badge variant={quiz.isPublished ? "default" : "secondary"}>
-                    {quiz.isPublished ? "Published" : "Draft"}
-                  </Badge>
-                </TableCell>
-                <TableCell>{quiz.questionCount}</TableCell>
-                <TableCell>{new Date(quiz.createdAt).toLocaleDateString()}</TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleHostSession(quiz.id)}
-                      disabled={!quiz.isPublished || quiz.questionCount === 0}
-                    >
-                      <Play className="h-4 w-4 mr-1" />
-                      Host
-                    </Button>
-                    <Link href={`/quizzes/${quiz.id}`}>
-                      <Button variant="ghost" size="icon">
-                        <Pencil className="h-4 w-4" />
+            {quizzes.map((quiz) => {
+              const activeSession = activeSessions[quiz.id];
+              return (
+                <TableRow key={quiz.id}>
+                  <TableCell className="font-medium">{quiz.title}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={quiz.isPublished ? "default" : "secondary"}>
+                        {quiz.isPublished ? "Published" : "Draft"}
+                      </Badge>
+                      {activeSession && (
+                        <Badge variant="destructive" className="animate-pulse">
+                          Live
+                        </Badge>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>{quiz.questionCount}</TableCell>
+                  <TableCell>{new Date(quiz.createdAt).toLocaleDateString()}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
+                      {activeSession ? (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => router.push(`/sessions/${activeSession.id}/host`)}
+                          >
+                            <Play className="h-4 w-4 mr-1" />
+                            Resume
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setStopSessionId(activeSession.id)}
+                          >
+                            <Square className="h-4 w-4 mr-1" />
+                            Stop
+                          </Button>
+                        </>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleHostSession(quiz.id)}
+                          disabled={!quiz.isPublished || quiz.questionCount === 0}
+                        >
+                          <Play className="h-4 w-4 mr-1" />
+                          Host
+                        </Button>
+                      )}
+                      <Link href={`/quizzes/${quiz.id}`}>
+                        <Button variant="ghost" size="icon">
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </Link>
+                      <Button variant="ghost" size="icon" onClick={() => setDeleteId(quiz.id)}>
+                        <Trash2 className="h-4 w-4" />
                       </Button>
-                    </Link>
-                    <Button variant="ghost" size="icon" onClick={() => setDeleteId(quiz.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       )}
@@ -150,6 +203,20 @@ export default function QuizzesPage() {
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setDeleteId(null)}>Cancel</Button>
             <Button variant="destructive" onClick={handleDelete}>Delete</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Stop Session Confirmation Dialog */}
+      <Dialog open={stopSessionId !== null} onOpenChange={(open) => { if (!open) setStopSessionId(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Stop Session</DialogTitle>
+            <DialogDescription>Are you sure you want to stop this session? All participants will be disconnected.</DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setStopSessionId(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleStopSession}>Stop Session</Button>
           </div>
         </DialogContent>
       </Dialog>

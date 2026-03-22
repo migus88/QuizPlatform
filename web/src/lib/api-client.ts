@@ -89,6 +89,7 @@ class ApiClient {
     create: (data: CreateSessionRequest) => this.request<SessionResponse>("POST", "/api/sessions", data),
     getById: (id: string) => this.request<SessionResponse>("GET", `/api/sessions/${id}`),
     getByCode: (code: string) => this.request<SessionResponse>("GET", `/api/sessions/code/${code}`),
+    getMyActive: () => this.request<SessionResponse[]>("GET", "/api/sessions/my-active"),
     start: (id: string) => this.request<SessionResponse>("POST", `/api/sessions/${id}/start`),
     nextQuestion: (id: string) => this.request<SessionResponse>("POST", `/api/sessions/${id}/next-question`),
     finish: (id: string) => this.request<SessionResponse>("POST", `/api/sessions/${id}/finish`),
