@@ -47,7 +47,7 @@ make dev
 Or run them separately:
 
 ```bash
-make api   # API on http://localhost:8080
+make api   # API on http://localhost:5063
 make web   # Frontend on http://localhost:3000
 ```
 
