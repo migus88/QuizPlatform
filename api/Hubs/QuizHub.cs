@@ -86,6 +86,44 @@ public class QuizHub : Hub
             .ToList();
 
         await Clients.Caller.SendAsync("JoinedSession", sessionResponse, participantResponse, participants);
+
+        // If session is active, send the current question so refreshing clients can catch up
+        if (session.Status == SessionStatus.Active)
+        {
+            var quiz = await _db.Quizzes
+                .Include(q => q.Questions.OrderBy(qu => qu.Order))
+                    .ThenInclude(q => q.AnswerOptions)
+                .FirstOrDefaultAsync(q => q.Id == session.QuizId);
+
+            var question = quiz?.Questions.ElementAtOrDefault(session.CurrentQuestionIndex);
+            if (question is not null)
+            {
+                var questionData = new
+                {
+                    id = question.Id,
+                    text = question.Text,
+                    questionNumber = session.CurrentQuestionIndex + 1,
+                    totalQuestions = quiz!.Questions.Count,
+                    timeLimitSeconds = question.TimeLimitSeconds,
+                    options = question.AnswerOptions.OrderBy(a => a.Order).Select(a => new
+                    {
+                        id = a.Id,
+                        text = a.Text,
+                        order = a.Order
+                    })
+                };
+
+                await Clients.Caller.SendAsync("QuestionStarted", questionData);
+
+                // Check if this participant already answered the current question
+                var alreadyAnswered = await _db.ParticipantAnswers
+                    .AnyAsync(a => a.ParticipantId == participant.Id && a.QuestionId == question.Id);
+                if (alreadyAnswered)
+                {
+                    await Clients.Caller.SendAsync("AlreadyAnswered");
+                }
+            }
+        }
     }
 
     public async Task JoinAsHost(string sessionId)

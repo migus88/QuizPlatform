@@ -136,6 +136,10 @@ export default function PlayPage() {
         setPlayState("finished");
       });
 
+      connection.on(HubEvents.ALREADY_ANSWERED, () => {
+        setAnswered(true);
+      });
+
       // Try to rejoin if we have stored info
       if (storedSession && storedSession.sessionId === params.sessionId) {
         try {

@@ -20,6 +20,7 @@ export const HubEvents = {
   ANSWER_REVEALED: "AnswerRevealed",
   LEADERBOARD_UPDATED: "LeaderboardUpdated",
   SESSION_ENDED: "SessionEnded",
+  ALREADY_ANSWERED: "AlreadyAnswered",
 } as const;
 
 export function createQuizConnection(): HubConnection {
