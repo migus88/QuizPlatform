@@ -312,7 +312,7 @@ public static class QuizEndpoints
                 if (q is not null) q.Order = i + 1;
             }
             await db.SaveChangesAsync();
-            return Results.Ok();
+            return Results.NoContent();
         });
     }
 }
