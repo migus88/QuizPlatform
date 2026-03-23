@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using QuizPlatform.Api.Data;
@@ -11,9 +12,11 @@ using QuizPlatform.Api.Data;
 namespace QuizPlatform.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260323125106_RemoveIsPublished")]
+    partial class RemoveIsPublished
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -267,29 +270,6 @@ namespace QuizPlatform.Api.Migrations
                         .IsUnique();
 
                     b.ToTable("ParticipantAnswers");
-                });
-
-            modelBuilder.Entity("QuizPlatform.Api.Models.PlatformSettings", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("JoinCodeLength")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("PlatformSettings");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            JoinCodeLength = 4
-                        });
                 });
 
             modelBuilder.Entity("QuizPlatform.Api.Models.Question", b =>

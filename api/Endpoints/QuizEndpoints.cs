@@ -13,27 +13,27 @@ public static class QuizEndpoints
     {
         var group = routes.MapGroup("/api/quizzes").RequireAuthorization().WithTags("Quizzes");
 
-        // List quizzes
-        group.MapGet("/", async (ClaimsPrincipal principal, UserManager<User> userManager, AppDbContext db) =>
+        // List quizzes (own quizzes only; admins see all)
+        group.MapGet("/", async (ClaimsPrincipal principal, AppDbContext db) =>
         {
             var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier)!;
             var isAdmin = principal.IsInRole("Admin");
 
             var query = db.Quizzes.AsQueryable();
             if (!isAdmin)
-                query = query.Where(q => q.IsPublished || q.CreatedByUserId == userId);
+                query = query.Where(q => q.CreatedByUserId == userId);
 
             var quizzes = await query
                 .OrderByDescending(q => q.CreatedAt)
                 .Select(q => new QuizListResponse(
-                    q.Id, q.Title, q.Description, q.IsPublished,
-                    q.Questions.Count, q.CreatedAt, q.CreatedByUserId == userId))
+                    q.Id, q.Title, q.Description,
+                    q.Questions.Count, q.CreatedAt))
                 .ToListAsync();
 
             return Results.Ok(quizzes);
         });
 
-        // Get quiz by id
+        // Get quiz by id (owner or admin)
         group.MapGet("/{id:guid}", async (Guid id, ClaimsPrincipal principal, AppDbContext db) =>
         {
             var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier)!;
@@ -45,18 +45,17 @@ public static class QuizEndpoints
                 .FirstOrDefaultAsync(q => q.Id == id);
 
             if (quiz is null) return Results.NotFound();
-            if (!isAdmin && !quiz.IsPublished && quiz.CreatedByUserId != userId) return Results.NotFound();
+            if (!isAdmin && quiz.CreatedByUserId != userId) return Results.NotFound();
 
-            var isOwnerOrAdmin = isAdmin || quiz.CreatedByUserId == userId;
             var questions = quiz.Questions.Select(q => new QuestionResponse(
                 q.Id, q.Text, q.TimeLimitSeconds, q.Points, q.DisableTimeScoring, q.Order,
                 q.AnswerOptions.Select(a => new AnswerOptionResponse(
-                    a.Id, a.Text, isOwnerOrAdmin ? a.IsCorrect : false, isOwnerOrAdmin ? a.PointsOverride : null, a.Order
+                    a.Id, a.Text, a.IsCorrect, a.PointsOverride, a.Order
                 )).ToList()
             )).ToList();
 
             return Results.Ok(new QuizDetailResponse(
-                quiz.Id, quiz.Title, quiz.Description, quiz.IsPublished,
+                quiz.Id, quiz.Title, quiz.Description,
                 questions, quiz.CreatedAt, quiz.UpdatedAt));
         });
 
@@ -76,7 +75,7 @@ public static class QuizEndpoints
             await db.SaveChangesAsync();
 
             return Results.Created($"/api/quizzes/{quiz.Id}", new QuizDetailResponse(
-                quiz.Id, quiz.Title, quiz.Description, quiz.IsPublished,
+                quiz.Id, quiz.Title, quiz.Description,
                 [], quiz.CreatedAt, quiz.UpdatedAt));
         });
 
@@ -92,13 +91,11 @@ public static class QuizEndpoints
 
             if (request.Title is not null) quiz.Title = request.Title;
             if (request.Description is not null) quiz.Description = request.Description;
-            if (request.IsPublished.HasValue) quiz.IsPublished = request.IsPublished.Value;
 
             await db.SaveChangesAsync();
 
-            var questionCount = await db.Questions.CountAsync(q => q.QuizId == id);
             return Results.Ok(new QuizDetailResponse(
-                quiz.Id, quiz.Title, quiz.Description, quiz.IsPublished,
+                quiz.Id, quiz.Title, quiz.Description,
                 [], quiz.CreatedAt, quiz.UpdatedAt));
         });
 

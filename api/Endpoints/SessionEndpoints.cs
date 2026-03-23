@@ -10,7 +10,7 @@ namespace QuizPlatform.Api.Endpoints;
 
 public static class SessionEndpoints
 {
-    private static readonly char[] JoinCodeChars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789".ToCharArray();
+    private static readonly char[] JoinCodeChars = "0123456789".ToCharArray();
 
     public static void MapSessionEndpoints(this IEndpointRouteBuilder routes)
     {
@@ -57,7 +57,6 @@ public static class SessionEndpoints
 
             var quiz = await db.Quizzes.Include(q => q.Questions).FirstOrDefaultAsync(q => q.Id == request.QuizId);
             if (quiz is null) return Results.NotFound("Quiz not found");
-            if (!quiz.IsPublished) return Results.BadRequest("Quiz must be published to create a session");
             if (!quiz.Questions.Any()) return Results.BadRequest("Quiz must have at least one question");
 
             // Check for existing active session
@@ -78,10 +77,11 @@ public static class SessionEndpoints
                     existingSession.StartedAt, existingSession.EndedAt));
             }
 
+            var settings = await db.PlatformSettings.FirstAsync();
             string joinCode;
             do
             {
-                joinCode = GenerateJoinCode();
+                joinCode = GenerateJoinCode(settings.JoinCodeLength);
             } while (await db.Sessions.AnyAsync(s => s.JoinCode == joinCode));
 
             var session = new Session
@@ -123,7 +123,7 @@ public static class SessionEndpoints
             var session = await db.Sessions
                 .Include(s => s.Quiz)
                 .Include(s => s.Participants)
-                .FirstOrDefaultAsync(s => s.JoinCode == code.ToUpper());
+                .FirstOrDefaultAsync(s => s.JoinCode == code.Trim());
             if (session is null) return Results.NotFound();
 
             return Results.Ok(new SessionResponse(
@@ -265,9 +265,9 @@ public static class SessionEndpoints
         }).RequireAuthorization();
     }
 
-    private static string GenerateJoinCode()
+    private static string GenerateJoinCode(int length)
     {
         var random = Random.Shared;
-        return new string(Enumerable.Range(0, 6).Select(_ => JoinCodeChars[random.Next(JoinCodeChars.Length)]).ToArray());
+        return new string(Enumerable.Range(0, length).Select(_ => JoinCodeChars[random.Next(JoinCodeChars.Length)]).ToArray());
     }
 }

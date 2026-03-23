@@ -24,7 +24,6 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Play, History } from "lucide-react";
-import { useAuth } from "@/lib/auth";
 
 export default function QuizzesPage() {
   const [quizzes, setQuizzes] = useState<QuizListResponse[]>([]);
@@ -32,7 +31,6 @@ export default function QuizzesPage() {
   const [loading, setLoading] = useState(true);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const router = useRouter();
-  const { isAdmin } = useAuth();
 
   const loadQuizzes = async () => {
     try {
@@ -120,51 +118,42 @@ export default function QuizzesPage() {
                 <TableRow key={quiz.id}>
                   <TableCell className="font-medium">{quiz.title}</TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={quiz.isPublished ? "default" : "secondary"}>
-                        {quiz.isPublished ? "Published" : "Draft"}
+                    {activeSession ? (
+                      <Badge variant="destructive" className="animate-pulse">
+                        Live
                       </Badge>
-                      {activeSession && (
-                        <Badge variant="destructive" className="animate-pulse">
-                          Live
-                        </Badge>
-                      )}
-                    </div>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">
+                        {quiz.questionCount} question{quiz.questionCount !== 1 ? "s" : ""}
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell>{quiz.questionCount}</TableCell>
                   <TableCell>{new Date(quiz.createdAt).toLocaleDateString()}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      {(isAdmin || quiz.isOwner) && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleHostSession(quiz.id)}
-                          disabled={!quiz.isPublished || quiz.questionCount === 0}
-                        >
-                          <Play className="h-4 w-4 mr-1" />
-                          Host
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleHostSession(quiz.id)}
+                        disabled={quiz.questionCount === 0}
+                      >
+                        <Play className="h-4 w-4 mr-1" />
+                        Host
+                      </Button>
+                      <Link href={`/quizzes/${quiz.id}/sessions`}>
+                        <Button variant="ghost" size="icon" title="Session History">
+                          <History className="h-4 w-4" />
                         </Button>
-                      )}
-                      {(isAdmin || quiz.isOwner) && (
-                        <Link href={`/quizzes/${quiz.id}/sessions`}>
-                          <Button variant="ghost" size="icon" title="Session History">
-                            <History className="h-4 w-4" />
-                          </Button>
-                        </Link>
-                      )}
-                      {(isAdmin || quiz.isOwner) && (
-                        <Link href={`/quizzes/${quiz.id}`}>
-                          <Button variant="ghost" size="icon" title="Edit">
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                        </Link>
-                      )}
-                      {(isAdmin || quiz.isOwner) && (
-                        <Button variant="ghost" size="icon" title="Delete" onClick={() => setDeleteId(quiz.id)}>
-                          <Trash2 className="h-4 w-4" />
+                      </Link>
+                      <Link href={`/quizzes/${quiz.id}`}>
+                        <Button variant="ghost" size="icon" title="Edit">
+                          <Pencil className="h-4 w-4" />
                         </Button>
-                      )}
+                      </Link>
+                      <Button variant="ghost" size="icon" title="Delete" onClick={() => setDeleteId(quiz.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>

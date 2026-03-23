@@ -52,17 +52,14 @@ export interface QuizListResponse {
   id: string;
   title: string;
   description: string | null;
-  isPublished: boolean;
   questionCount: number;
   createdAt: string;
-  isOwner: boolean;
 }
 
 export interface QuizDetailResponse {
   id: string;
   title: string;
   description: string | null;
-  isPublished: boolean;
   questions: QuestionResponse[];
   createdAt: string;
   updatedAt: string;
@@ -94,7 +91,6 @@ export interface CreateQuizRequest {
 export interface UpdateQuizRequest {
   title?: string;
   description?: string;
-  isPublished?: boolean;
 }
 
 export interface CreateQuestionRequest {

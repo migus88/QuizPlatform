@@ -60,7 +60,6 @@ export default function QuizEditorPage() {
   // Metadata form
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [isPublished, setIsPublished] = useState(false);
   const [savingMeta, setSavingMeta] = useState(false);
 
   // Question dialogs
@@ -75,7 +74,6 @@ export default function QuizEditorPage() {
       setQuiz(data);
       setTitle(data.title);
       setDescription(data.description || "");
-      setIsPublished(data.isPublished);
     } catch {
       toast.error("Failed to load quiz");
       router.push("/quizzes");
@@ -95,7 +93,6 @@ export default function QuizEditorPage() {
       await api.quizzes.update(quiz.id, {
         title: title.trim(),
         description: description.trim() || undefined,
-        isPublished,
       });
       toast.success("Quiz updated");
       loadQuiz();
@@ -365,20 +362,6 @@ export default function QuizEditorPage() {
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Optional description"
             />
-          </div>
-          <div className="flex items-center gap-3">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={isPublished}
-                onChange={(e) => setIsPublished(e.target.checked)}
-                className="rounded"
-              />
-              <span className="text-sm font-medium">Published</span>
-            </label>
-            <Badge variant={isPublished ? "default" : "secondary"}>
-              {isPublished ? "Published" : "Draft"}
-            </Badge>
           </div>
           <div className="flex justify-end">
             <Button onClick={handleSaveMeta} disabled={savingMeta}>
