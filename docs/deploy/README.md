@@ -175,20 +175,29 @@ cd ~/quizplatform
 cp .env.example .env
 ```
 
-Edit `.env` with production values:
+**Important:** `.env` files are not shell scripts — they don't execute commands or expand variables. Every value must be a plain literal string.
+
+Generate your secrets first, then paste the actual values:
 
 ```bash
-# Generate a random JWT key
-DEPLOY_JWT_KEY=$(openssl rand -base64 48)
+# Run these commands to generate secrets — copy the output
+openssl rand -base64 48   # → use this for DEPLOY_JWT_KEY
+openssl rand -base64 24   # → use this for DEPLOY_DB_PASSWORD
+```
 
-# Set your domain
+Then edit `.env` with the real values (no quotes, no `$(...)`, no `$VARIABLE` references):
+
+```
+DEPLOY_JWT_KEY=abc123your-actual-generated-key-here
+DEPLOY_DB_PASSWORD=xyz789your-actual-generated-password-here
+DEPLOY_DB_CONNECTION=Host=postgres;Database=quizplatform;Username=quizplatform;Password=xyz789your-actual-generated-password-here
+DEPLOY_DB_USER=quizplatform
+DEPLOY_DB_NAME=quizplatform
 NEXT_PUBLIC_API_URL=https://quiz.yourdomain.com
 ALLOWED_ORIGINS=https://quiz.yourdomain.com
-
-# Set a strong DB password
-DEPLOY_DB_PASSWORD=$(openssl rand -base64 24)
-DEPLOY_DB_CONNECTION="Host=postgres;Database=quizplatform;Username=quizplatform;Password=$DEPLOY_DB_PASSWORD"
 ```
+
+The `DEPLOY_DB_PASSWORD` value must appear in two places: on its own line and inside the `DEPLOY_DB_CONNECTION` string. They must match.
 
 ### 3.7 Start the stack
 
