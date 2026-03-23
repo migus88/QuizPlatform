@@ -1,6 +1,7 @@
 namespace QuizPlatform.Api.DTOs;
 
 public record QuizListResponse(Guid Id, string Title, string? Description, int QuestionCount, DateTime CreatedAt);
+public record AdminQuizListResponse(Guid Id, string Title, string? Description, int QuestionCount, DateTime CreatedAt, string OwnerName, string OwnerEmail);
 public record QuizDetailResponse(Guid Id, string Title, string? Description, List<QuestionResponse> Questions, DateTime CreatedAt, DateTime UpdatedAt);
 public record QuestionResponse(Guid Id, string Text, int TimeLimitSeconds, int Points, bool DisableTimeScoring, int Order, List<AnswerOptionResponse> AnswerOptions);
 public record AnswerOptionResponse(Guid Id, string Text, bool IsCorrect, int? PointsOverride, int Order);

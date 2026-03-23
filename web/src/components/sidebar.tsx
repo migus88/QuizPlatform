@@ -5,7 +5,13 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, Users, BookOpen, LogIn, User, LogOut, Settings } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Menu, BookOpen, LogIn, Users, Library, Settings, Pencil, LogOut } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -39,20 +45,26 @@ function NavLink({
   );
 }
 
+function SectionLabel({ label }: { label: string }) {
+  return (
+    <div className="px-3 pt-4 pb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">
+      {label}
+    </div>
+  );
+}
+
+function UserAvatar({ firstName, lastName }: { firstName: string; lastName: string }) {
+  const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
+  return (
+    <div className="h-8 w-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
+      {initials}
+    </div>
+  );
+}
+
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const { user, isAdmin, logout } = useAuth();
   const pathname = usePathname();
-
-  const navLinks = [
-    ...(isAdmin
-      ? [{ href: "/users", label: "Users", icon: Users }]
-      : []),
-    { href: "/quizzes", label: "Quizzes", icon: BookOpen },
-    { href: "/join", label: "Join", icon: LogIn },
-    ...(isAdmin
-      ? [{ href: "/settings", label: "Settings", icon: Settings }]
-      : []),
-  ];
 
   return (
     <div className="flex h-full flex-col">
@@ -62,41 +74,80 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         </Link>
       </div>
 
-      <nav className="flex-1 space-y-1 px-3">
-        {navLinks.map((link) => (
-          <NavLink
-            key={link.href}
-            href={link.href}
-            label={link.label}
-            icon={link.icon}
-            active={pathname === link.href || pathname.startsWith(link.href + "/")}
-            onClick={onNavigate}
-          />
-        ))}
+      <nav className="flex-1 space-y-0 px-3 overflow-y-auto">
+        <NavLink
+          href="/quizzes"
+          label="Quizzes"
+          icon={BookOpen}
+          active={pathname === "/quizzes" || (pathname.startsWith("/quizzes/") && !pathname.startsWith("/quizzes/admin"))}
+          onClick={onNavigate}
+        />
+        <NavLink
+          href="/join"
+          label="Join"
+          icon={LogIn}
+          active={pathname === "/join"}
+          onClick={onNavigate}
+        />
+
+        {isAdmin && (
+          <>
+            <SectionLabel label="Administration" />
+            <NavLink
+              href="/admin/users"
+              label="Users"
+              icon={Users}
+              active={pathname === "/admin/users"}
+              onClick={onNavigate}
+            />
+            <NavLink
+              href="/admin/quizzes"
+              label="All Quizzes"
+              icon={Library}
+              active={pathname === "/admin/quizzes"}
+              onClick={onNavigate}
+            />
+          </>
+        )}
       </nav>
 
       <div className="border-t p-3 space-y-1">
-        <NavLink
-          href="/profile"
-          label="Profile"
-          icon={User}
-          active={pathname === "/profile"}
-          onClick={onNavigate}
-        />
-        <button
-          onClick={() => {
-            onNavigate?.();
-            logout();
-          }}
-          className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-accent-foreground"
-        >
-          <LogOut className="h-4 w-4" />
-          Logout
-        </button>
+        {isAdmin && (
+          <NavLink
+            href="/settings"
+            label="Settings"
+            icon={Settings}
+            active={pathname === "/settings"}
+            onClick={onNavigate}
+          />
+        )}
         {user && (
-          <div className="px-3 pt-2 text-xs text-muted-foreground truncate">
-            {user.firstName} {user.lastName}
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-accent-foreground">
+                <UserAvatar firstName={user.firstName} lastName={user.lastName} />
+                <span className="truncate">{user.firstName} {user.lastName}</span>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-48">
+              <DropdownMenuItem asChild>
+                <Link href="/profile" onClick={onNavigate} className="flex items-center gap-2">
+                  <Pencil className="h-4 w-4" />
+                  Edit Profile
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  onNavigate?.();
+                  logout();
+                }}
+                className="flex items-center gap-2"
+              >
+                <LogOut className="h-4 w-4" />
+                Logout
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
       </div>
     </div>

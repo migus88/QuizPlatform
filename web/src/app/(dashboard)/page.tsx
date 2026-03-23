@@ -6,27 +6,14 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
 export default function DashboardPage() {
-  const { user, isAdmin } = useAuth();
+  const { user } = useAuth();
 
   return (
     <div>
       <h1 className="text-3xl font-bold mb-8">
         Welcome, {user?.firstName}!
       </h1>
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {isAdmin && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Users</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground mb-4">Manage platform users</p>
-              <Link href="/users">
-                <Button>Manage Users</Button>
-              </Link>
-            </CardContent>
-          </Card>
-        )}
+      <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>Quizzes</CardTitle>

@@ -1,4 +1,5 @@
 import type {
+  AdminQuizListResponse,
   AuthResponse,
   ChangePasswordRequest,
   CreateQuestionRequest,
@@ -74,6 +75,13 @@ class ApiClient {
   quizzes = {
     list: (page = 1, pageSize = 20) =>
       this.request<PaginatedResponse<QuizListResponse>>("GET", `/api/quizzes?page=${page}&pageSize=${pageSize}`),
+    adminList: (page = 1, pageSize = 20, search?: string, sortBy?: string, sortDir?: string) => {
+      const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+      if (search) params.set("search", search);
+      if (sortBy) params.set("sortBy", sortBy);
+      if (sortDir) params.set("sortDir", sortDir);
+      return this.request<PaginatedResponse<AdminQuizListResponse>>("GET", `/api/quizzes/admin?${params}`);
+    },
     getById: (id: string) => this.request<QuizDetailResponse>("GET", `/api/quizzes/${id}`),
     create: (data: CreateQuizRequest) => this.request<QuizDetailResponse>("POST", "/api/quizzes", data),
     update: (id: string, data: UpdateQuizRequest) => this.request<QuizDetailResponse>("PUT", `/api/quizzes/${id}`, data),

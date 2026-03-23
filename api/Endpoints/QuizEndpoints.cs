@@ -13,16 +13,12 @@ public static class QuizEndpoints
     {
         var group = routes.MapGroup("/api/quizzes").RequireAuthorization().WithTags("Quizzes");
 
-        // List quizzes (own quizzes only; admins see all)
+        // List own quizzes
         group.MapGet("/", async (ClaimsPrincipal principal, AppDbContext db, int page = 1, int pageSize = 20) =>
         {
             var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier)!;
-            var isAdmin = principal.IsInRole("Admin");
 
-            var query = db.Quizzes.AsQueryable();
-            if (!isAdmin)
-                query = query.Where(q => q.CreatedByUserId == userId);
-
+            var query = db.Quizzes.Where(q => q.CreatedByUserId == userId);
             var totalCount = await query.CountAsync();
 
             var quizzes = await query
@@ -32,6 +28,46 @@ public static class QuizEndpoints
                 .Select(q => new QuizListResponse(
                     q.Id, q.Title, q.Description,
                     q.Questions.Count, q.CreatedAt))
+                .ToListAsync();
+
+            return Results.Ok(new { items = quizzes, totalCount, page, pageSize });
+        });
+
+        // Admin: list all quizzes with search, filter, sort
+        group.MapGet("/admin", async (ClaimsPrincipal principal, AppDbContext db,
+            int page = 1, int pageSize = 20, string? search = null, string? sortBy = null, string? sortDir = null) =>
+        {
+            if (!principal.IsInRole("Admin")) return Results.Forbid();
+
+            var query = db.Quizzes.AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var term = search.Trim().ToLower();
+                query = query.Where(q =>
+                    q.Title.ToLower().Contains(term) ||
+                    q.CreatedBy.FirstName.ToLower().Contains(term) ||
+                    q.CreatedBy.LastName.ToLower().Contains(term) ||
+                    q.CreatedBy.Email!.ToLower().Contains(term));
+            }
+
+            var totalCount = await query.CountAsync();
+
+            query = sortBy?.ToLower() switch
+            {
+                "title" => sortDir == "asc" ? query.OrderBy(q => q.Title) : query.OrderByDescending(q => q.Title),
+                "owner" => sortDir == "asc" ? query.OrderBy(q => q.CreatedBy.FirstName) : query.OrderByDescending(q => q.CreatedBy.FirstName),
+                "questions" => sortDir == "asc" ? query.OrderBy(q => q.Questions.Count) : query.OrderByDescending(q => q.Questions.Count),
+                _ => query.OrderByDescending(q => q.CreatedAt),
+            };
+
+            var quizzes = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(q => new AdminQuizListResponse(
+                    q.Id, q.Title, q.Description,
+                    q.Questions.Count, q.CreatedAt,
+                    q.CreatedBy.FirstName + " " + q.CreatedBy.LastName, q.CreatedBy.Email!))
                 .ToListAsync();
 
             return Results.Ok(new { items = quizzes, totalCount, page, pageSize });

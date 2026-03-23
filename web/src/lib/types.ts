@@ -64,6 +64,11 @@ export interface QuizListResponse {
   createdAt: string;
 }
 
+export interface AdminQuizListResponse extends QuizListResponse {
+  ownerName: string;
+  ownerEmail: string;
+}
+
 export interface QuizDetailResponse {
   id: string;
   title: string;
