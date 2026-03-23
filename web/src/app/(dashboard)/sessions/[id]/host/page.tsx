@@ -20,7 +20,7 @@ import { AnimatedLeaderboard } from "@/components/animated-leaderboard";
 import { toast } from "sonner";
 import { Users, Play, Trophy, ArrowRight, ChevronRight, Check } from "lucide-react";
 
-type HostState = "lobby" | "question" | "revealing" | "reveal" | "leaderboard" | "finished";
+type HostState = "lobby" | "questionIntro" | "question" | "revealing" | "reveal" | "leaderboard" | "finished";
 
 interface QuestionData {
   id: string;
@@ -71,6 +71,8 @@ export default function HostPage() {
   const [revealMessage, setRevealMessage] = useState("");
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [visibleOptions, setVisibleOptions] = useState(0);
+  const [timerActive, setTimerActive] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -129,9 +131,25 @@ export default function HostPage() {
             setAnswerCount(0);
             setRevealData(null);
             setRevealMessage("");
-            setHostState("question");
+            setVisibleOptions(0);
+            setTimerActive(false);
+            setHostState("questionIntro");
+
+            const optionCount = data.options.length;
+            setTimeout(() => {
+              for (let i = 0; i < optionCount; i++) {
+                setTimeout(() => {
+                  setVisibleOptions((prev) => prev + 1);
+                }, i * 500);
+              }
+            }, 3000);
           }
         );
+
+        connection.on(HubEvents.TIMER_STARTED, () => {
+          setTimerActive(true);
+          setHostState("question");
+        });
 
         connection.on(HubEvents.TIMER_TICK, (seconds: number) => {
           setTimer(seconds);
@@ -286,7 +304,44 @@ export default function HostPage() {
     );
   }
 
-  // QUESTION DISPLAY
+  // QUESTION INTRO - show question text, then reveal answers one by one
+  if (hostState === "questionIntro" && currentQuestion) {
+    const sortedOptions = [...currentQuestion.options].sort(
+      (a, b) => a.order - b.order
+    );
+    return (
+      <div className="max-w-4xl mx-auto">
+        <Badge variant="outline">
+          Question {currentQuestion.questionNumber} of {currentQuestion.totalQuestions}
+        </Badge>
+
+        <Card className="my-6">
+          <CardContent className="py-12">
+            <h2 className="text-3xl font-bold text-center animate-in fade-in duration-700">
+              <FormattedText text={currentQuestion.text} />
+            </h2>
+          </CardContent>
+        </Card>
+
+        <div className="grid grid-cols-2 gap-4">
+          {sortedOptions.map((option, index) => (
+            <div
+              key={option.id}
+              className={`${optionColors[index % 6]} rounded-lg p-6 text-center text-lg font-medium transition-all duration-500 ${
+                index < visibleOptions
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 translate-y-4"
+              }`}
+            >
+              {String.fromCharCode(65 + index)}. <FormattedText text={option.text} />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // QUESTION DISPLAY - answering phase with timer
   if (hostState === "question" && currentQuestion) {
     const sortedOptions = [...currentQuestion.options].sort(
       (a, b) => a.order - b.order
@@ -324,7 +379,7 @@ export default function HostPage() {
           </CardContent>
         </Card>
 
-        <div className="grid grid-cols-2 gap-4 mb-6">
+        <div className="grid grid-cols-2 gap-4">
           {sortedOptions.map((option, index) => (
             <div
               key={option.id}
@@ -334,10 +389,6 @@ export default function HostPage() {
             </div>
           ))}
         </div>
-
-        <p className="text-center text-sm text-muted-foreground">
-          Answers will be revealed automatically
-        </p>
       </div>
     );
   }
@@ -367,10 +418,14 @@ export default function HostPage() {
 
     return (
       <div className="max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom duration-500">
-        <div className="mb-4">
+        <div className="flex items-center justify-between mb-4">
           <Badge variant="outline">
             Question {currentQuestion.questionNumber} of {currentQuestion.totalQuestions}
           </Badge>
+          <Button onClick={handleShowLeaderboard}>
+            <Trophy className="h-5 w-5 mr-2" />
+            Show Leaderboard
+          </Button>
         </div>
 
         <Card className="mb-6">
@@ -379,7 +434,7 @@ export default function HostPage() {
           </CardContent>
         </Card>
 
-        <div className="grid grid-cols-2 gap-4 mb-6">
+        <div className="grid grid-cols-2 gap-4">
           {sortedOptions.map((option, index) => {
             const revealOption = revealData.options.find((o) => o.id === option.id);
             const isCorrect = revealOption?.isCorrect ?? false;
@@ -412,13 +467,6 @@ export default function HostPage() {
             );
           })}
         </div>
-
-        <div className="text-center">
-          <Button size="lg" onClick={handleShowLeaderboard}>
-            <Trophy className="h-5 w-5 mr-2" />
-            Show Leaderboard
-          </Button>
-        </div>
       </div>
     );
   }
@@ -427,20 +475,20 @@ export default function HostPage() {
   if (hostState === "leaderboard") {
     return (
       <div>
-        <AnimatedLeaderboard entries={leaderboard} />
-
-        <div className="flex justify-center gap-4 mt-8">
+        <div className="flex justify-end gap-3 mb-4">
           {currentQuestion &&
             currentQuestion.questionNumber < currentQuestion.totalQuestions && (
-              <Button size="lg" onClick={handleNextQuestion}>
+              <Button onClick={handleNextQuestion}>
                 Next Question
                 <ChevronRight className="h-5 w-5 ml-1" />
               </Button>
             )}
-          <Button size="lg" variant="outline" onClick={handleEndSession}>
+          <Button variant="outline" onClick={handleEndSession}>
             End Session
           </Button>
         </div>
+
+        <AnimatedLeaderboard entries={leaderboard} />
       </div>
     );
   }

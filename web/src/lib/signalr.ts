@@ -19,6 +19,7 @@ export const HubEvents = {
   QUESTION_ENDED: "QuestionEnded",
   ANSWER_REVEALED: "AnswerRevealed",
   LEADERBOARD_UPDATED: "LeaderboardUpdated",
+  TIMER_STARTED: "TimerStarted",
   SESSION_ENDED: "SessionEnded",
   ALREADY_ANSWERED: "AlreadyAnswered",
   PARTICIPANT_UPDATED: "ParticipantUpdated",

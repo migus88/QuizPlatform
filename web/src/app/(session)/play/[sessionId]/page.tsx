@@ -14,7 +14,7 @@ import { AnimatedLeaderboard } from "@/components/animated-leaderboard";
 import { toast } from "sonner";
 import { Check, X, Trophy } from "lucide-react";
 
-type PlayState = "waiting" | "question" | "revealing" | "result" | "leaderboard" | "finished";
+type PlayState = "waiting" | "questionIntro" | "question" | "revealing" | "result" | "leaderboard" | "finished";
 
 interface QuestionData {
   id: string;
@@ -79,6 +79,8 @@ export default function PlayPage() {
   const [myRank, setMyRank] = useState<number | null>(null);
   const [myScore, setMyScore] = useState(0);
   const [connected, setConnected] = useState(false);
+  const [visibleOptions, setVisibleOptions] = useState(0);
+  const [timerActive, setTimerActive] = useState(false);
   const myScoreRef = useRef(0);
 
   useEffect(() => {
@@ -190,9 +192,27 @@ export default function PlayPage() {
             setAnswerResult(null);
             setRevealData(null);
             setRevealMessage("");
-            setPlayState("question");
+            setVisibleOptions(0);
+            setTimerActive(false);
+            setPlayState("questionIntro");
+
+            // Show question text for 3s, then reveal answers one by one
+            const optionCount = data.options.length;
+            setTimeout(() => {
+              // Start revealing answers one by one every 500ms
+              for (let i = 0; i < optionCount; i++) {
+                setTimeout(() => {
+                  setVisibleOptions((prev) => prev + 1);
+                }, i * 500);
+              }
+            }, 3000);
           }
         );
+
+        connection.on(HubEvents.TIMER_STARTED, () => {
+          setTimerActive(true);
+          setPlayState("question");
+        });
 
         connection.on(HubEvents.TIMER_TICK, (seconds: number) => {
           setTimer(seconds);
@@ -385,7 +405,45 @@ export default function PlayPage() {
     );
   }
 
-  // QUESTION
+  // QUESTION INTRO - show question text, then reveal answers one by one
+  if (playState === "questionIntro" && currentQuestion) {
+    const sortedOptions = [...currentQuestion.options].sort(
+      (a, b) => a.order - b.order
+    );
+
+    return (
+      <div className="w-full max-w-lg">
+        <p className="text-center text-sm text-muted-foreground mb-4">
+          Question {currentQuestion.questionNumber} of {currentQuestion.totalQuestions}
+        </p>
+
+        <Card className="mb-6">
+          <CardContent className="py-8">
+            <h2 className="text-2xl font-bold text-center animate-in fade-in duration-500">
+              <FormattedText text={currentQuestion.text} />
+            </h2>
+          </CardContent>
+        </Card>
+
+        <div className="grid grid-cols-2 gap-3">
+          {sortedOptions.map((option, index) => (
+            <div
+              key={option.id}
+              className={`${optionColorsBg[index % 6]} text-white rounded-xl p-4 min-h-[80px] text-lg font-medium flex items-center justify-center transition-all duration-500 ${
+                index < visibleOptions
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 translate-y-4"
+              }`}
+            >
+              <FormattedText text={option.text} />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // QUESTION - answering phase
   if (playState === "question" && currentQuestion) {
     const sortedOptions = [...currentQuestion.options].sort(
       (a, b) => a.order - b.order
@@ -396,6 +454,9 @@ export default function PlayPage() {
         <div className="w-full max-w-md text-center">
           <Card>
             <CardContent className="py-12">
+              <p className="text-sm text-muted-foreground mb-4">
+                Question {currentQuestion.questionNumber} of {currentQuestion.totalQuestions}
+              </p>
               <div className="mb-4">
                 <Check className="w-16 h-16 mx-auto text-emerald-500" />
               </div>
@@ -410,6 +471,10 @@ export default function PlayPage() {
 
     return (
       <div className="w-full max-w-lg">
+        <p className="text-center text-sm text-muted-foreground mb-2">
+          Question {currentQuestion.questionNumber} of {currentQuestion.totalQuestions}
+        </p>
+
         {/* Timer */}
         <p className="text-center text-3xl font-bold font-mono mb-2">{timer}</p>
         <div className="w-full bg-muted rounded-full h-2 mb-4 overflow-hidden">

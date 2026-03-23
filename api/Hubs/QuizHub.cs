@@ -332,17 +332,32 @@ public class QuizHub : Hub
             })
         };
 
+        var optionCount = question.AnswerOptions.Count;
         await _hubContext.Clients.Group(sessionId).SendAsync("QuestionStarted", questionData);
 
-        // Start timer
+        // Delay before timer: 3s for question text + 0.5s per answer option reveal
+        var introDelayMs = 3000 + (optionCount * 500);
+
         var cancellationToken = _timerService.StartTimer(sessionGuid, question.TimeLimitSeconds);
         var scopeFactory = _scopeFactory;
         var hubContext = _hubContext;
+        var timerService = _timerService;
 
         _ = Task.Run(async () =>
         {
             try
             {
+                // Wait for question + answer reveal animations before starting timer
+                await Task.Delay(introDelayMs, cancellationToken);
+
+                if (cancellationToken.IsCancellationRequested) return;
+
+                // Mark the actual start time for scoring calculations
+                timerService.MarkTimerStarted(sessionGuid);
+
+                // Signal that the timer is now starting
+                await hubContext.Clients.Group(sessionId).SendAsync("TimerStarted");
+
                 for (int remaining = question.TimeLimitSeconds; remaining >= 0; remaining--)
                 {
                     if (cancellationToken.IsCancellationRequested) break;
