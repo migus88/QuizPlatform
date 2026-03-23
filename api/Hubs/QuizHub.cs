@@ -36,6 +36,16 @@ public class QuizHub : Hub
         _scopeFactory = scopeFactory;
     }
 
+    private static IEnumerable<AnswerOption> OrderOptions(IEnumerable<AnswerOption> options, bool randomize, Guid sessionId, Guid questionId)
+    {
+        if (!randomize)
+            return options.OrderBy(a => a.Order);
+
+        var seed = sessionId.GetHashCode() ^ questionId.GetHashCode();
+        var rng = new Random(seed);
+        return options.OrderBy(_ => rng.Next());
+    }
+
     public static void CleanupSession(Guid sessionId)
     {
         _sessionPhase.TryRemove(sessionId, out _);
@@ -131,14 +141,15 @@ public class QuizHub : Hub
             var question = quiz?.Questions.ElementAtOrDefault(session.CurrentQuestionIndex);
             if (question is not null)
             {
+                var orderedOptions = OrderOptions(question.AnswerOptions, quiz!.RandomizeAnswerOrder, session.Id, question.Id);
                 var questionData = new
                 {
                     id = question.Id,
                     text = question.Text,
                     questionNumber = session.CurrentQuestionIndex + 1,
-                    totalQuestions = quiz!.Questions.Count,
+                    totalQuestions = quiz.Questions.Count,
                     timeLimitSeconds = question.TimeLimitSeconds,
-                    options = question.AnswerOptions.OrderBy(a => a.Order).Select(a => new
+                    options = orderedOptions.Select(a => new
                     {
                         id = a.Id,
                         text = a.Text,
@@ -194,6 +205,7 @@ public class QuizHub : Hub
 
             if (question is not null)
             {
+                var orderedOpts = OrderOptions(question.AnswerOptions, session.Quiz.RandomizeAnswerOrder, session.Id, question.Id);
                 var questionData = new
                 {
                     id = question.Id,
@@ -201,7 +213,7 @@ public class QuizHub : Hub
                     questionNumber = session.CurrentQuestionIndex + 1,
                     totalQuestions = session.Quiz.Questions.Count,
                     timeLimitSeconds = question.TimeLimitSeconds,
-                    options = question.AnswerOptions.OrderBy(a => a.Order).Select(a => new
+                    options = orderedOpts.Select(a => new
                     {
                         id = a.Id,
                         text = a.Text,
@@ -428,6 +440,7 @@ public class QuizHub : Hub
         _sessionPhase[sessionGuid] = "question";
         _sessionRevealData.TryRemove(sessionGuid, out _);
 
+        var gameOptions = OrderOptions(question.AnswerOptions, session.Quiz.RandomizeAnswerOrder, session.Id, question.Id);
         var questionData = new
         {
             id = question.Id,
@@ -435,7 +448,7 @@ public class QuizHub : Hub
             questionNumber = session.CurrentQuestionIndex + 1,
             totalQuestions = session.Quiz.Questions.Count,
             timeLimitSeconds = question.TimeLimitSeconds,
-            options = question.AnswerOptions.OrderBy(a => a.Order).Select(a => new
+            options = gameOptions.Select(a => new
             {
                 id = a.Id,
                 text = a.Text,

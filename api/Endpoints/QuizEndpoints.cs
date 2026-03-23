@@ -95,7 +95,7 @@ public static class QuizEndpoints
             )).ToList();
 
             return Results.Ok(new QuizDetailResponse(
-                quiz.Id, quiz.Title, quiz.Description,
+                quiz.Id, quiz.Title, quiz.Description, quiz.RandomizeAnswerOrder,
                 questions, quiz.CreatedAt, quiz.UpdatedAt));
         });
 
@@ -115,7 +115,7 @@ public static class QuizEndpoints
             await db.SaveChangesAsync();
 
             return Results.Created($"/api/quizzes/{quiz.Id}", new QuizDetailResponse(
-                quiz.Id, quiz.Title, quiz.Description,
+                quiz.Id, quiz.Title, quiz.Description, quiz.RandomizeAnswerOrder,
                 [], quiz.CreatedAt, quiz.UpdatedAt));
         });
 
@@ -131,11 +131,12 @@ public static class QuizEndpoints
 
             if (request.Title is not null) quiz.Title = request.Title;
             if (request.Description is not null) quiz.Description = request.Description;
+            if (request.RandomizeAnswerOrder.HasValue) quiz.RandomizeAnswerOrder = request.RandomizeAnswerOrder.Value;
 
             await db.SaveChangesAsync();
 
             return Results.Ok(new QuizDetailResponse(
-                quiz.Id, quiz.Title, quiz.Description,
+                quiz.Id, quiz.Title, quiz.Description, quiz.RandomizeAnswerOrder,
                 [], quiz.CreatedAt, quiz.UpdatedAt));
         });
 

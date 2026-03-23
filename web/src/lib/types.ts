@@ -73,6 +73,7 @@ export interface QuizDetailResponse {
   id: string;
   title: string;
   description: string | null;
+  randomizeAnswerOrder: boolean;
   questions: QuestionResponse[];
   createdAt: string;
   updatedAt: string;
@@ -104,6 +105,7 @@ export interface CreateQuizRequest {
 export interface UpdateQuizRequest {
   title?: string;
   description?: string;
+  randomizeAnswerOrder?: boolean;
 }
 
 export interface CreateQuestionRequest {

@@ -25,7 +25,24 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { FormattedText } from "@/components/formatted-text";
-import { Plus, Pencil, Trash2, Check, Clock, Trophy, X, Upload, Download, ArrowLeft } from "lucide-react";
+import { Plus, Pencil, Trash2, Check, Clock, Trophy, X, Upload, Download, ArrowLeft, GripVertical } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 interface OptionFormState {
   text: string;
@@ -52,6 +69,19 @@ const emptyQuestionForm: QuestionFormState = {
   ],
 };
 
+function SortableItem({ id, children }: { id: string; children: (props: { dragHandleProps: Record<string, unknown> }) => React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+  return (
+    <div ref={setNodeRef} style={style}>
+      {children({ dragHandleProps: { ...attributes, ...listeners } })}
+    </div>
+  );
+}
+
 export default function QuizEditorPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -61,6 +91,7 @@ export default function QuizEditorPage() {
   // Metadata form
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [randomizeAnswerOrder, setRandomizeAnswerOrder] = useState(true);
   const [savingMeta, setSavingMeta] = useState(false);
 
   // Question dialogs
@@ -74,12 +105,18 @@ export default function QuizEditorPage() {
   const [selectedQuestions, setSelectedQuestions] = useState<Set<string>>(new Set());
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
   const loadQuiz = useCallback(async () => {
     try {
       const data = await api.quizzes.getById(params.id);
       setQuiz(data);
       setTitle(data.title);
       setDescription(data.description || "");
+      setRandomizeAnswerOrder(data.randomizeAnswerOrder);
     } catch {
       toast.error("Failed to load quiz");
       router.push("/quizzes");
@@ -99,6 +136,7 @@ export default function QuizEditorPage() {
       await api.quizzes.update(quiz.id, {
         title: title.trim(),
         description: description.trim() || undefined,
+        randomizeAnswerOrder,
       });
       toast.success("Quiz updated");
       loadQuiz();
@@ -266,6 +304,38 @@ export default function QuizEditorPage() {
     setSelectedQuestions(new Set());
   };
 
+  const handleQuestionDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || !quiz || active.id === over.id) return;
+
+    const oldIndex = sortedQuestions.findIndex((q) => q.id === active.id);
+    const newIndex = sortedQuestions.findIndex((q) => q.id === over.id);
+    const reordered = arrayMove(sortedQuestions, oldIndex, newIndex);
+
+    // Optimistically update the quiz
+    setQuiz({ ...quiz, questions: reordered.map((q, i) => ({ ...q, order: i + 1 })) });
+
+    try {
+      await api.quizzes.reorderQuestions(quiz.id, reordered.map((q) => q.id));
+    } catch {
+      toast.error("Failed to reorder questions");
+      loadQuiz();
+    }
+  };
+
+  const handleOptionDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = Number(active.id);
+    const newIndex = Number(over.id);
+
+    setQuestionForm((prev) => ({
+      ...prev,
+      answerOptions: arrayMove(prev.answerOptions, oldIndex, newIndex),
+    }));
+  };
+
   const handleDownloadTemplate = () => {
     const template = [
       {
@@ -400,6 +470,15 @@ export default function QuizEditorPage() {
               placeholder="Optional description"
             />
           </div>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={randomizeAnswerOrder}
+              onChange={(e) => setRandomizeAnswerOrder(e.target.checked)}
+              className="rounded"
+            />
+            <span className="text-sm font-medium">Randomize answer order</span>
+          </label>
           <div className="flex justify-end">
             <Button onClick={handleSaveMeta} disabled={savingMeta}>
               {savingMeta ? "Saving..." : "Save Changes"}
@@ -464,6 +543,8 @@ export default function QuizEditorPage() {
           No questions yet. Add your first question!
         </div>
       ) : (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleQuestionDragEnd}>
+        <SortableContext items={sortedQuestions.map((q) => q.id)} strategy={verticalListSortingStrategy}>
         <div className="space-y-4">
           {sortedQuestions.map((question, index) => {
             const sortedOptions = [...question.answerOptions].sort(
@@ -471,10 +552,15 @@ export default function QuizEditorPage() {
             );
             const correctCount = sortedOptions.filter((o) => o.isCorrect).length;
             return (
-              <Card key={question.id} className={editMode && selectedQuestions.has(question.id) ? "ring-2 ring-primary" : ""}>
+              <SortableItem key={question.id} id={question.id}>
+              {({ dragHandleProps }) => (
+              <Card className={editMode && selectedQuestions.has(question.id) ? "ring-2 ring-primary" : ""}>
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-3 flex-1">
+                      <button type="button" className="mt-1 cursor-grab text-muted-foreground hover:text-foreground" {...dragHandleProps}>
+                        <GripVertical className="h-4 w-4" />
+                      </button>
                       {editMode && (
                         <input
                           type="checkbox"
@@ -538,9 +624,13 @@ export default function QuizEditorPage() {
                   </div>
                 </CardContent>
               </Card>
+              )}
+              </SortableItem>
             );
           })}
         </div>
+        </SortableContext>
+        </DndContext>
       )}
 
       {/* Add/Edit Question Dialog */}
@@ -614,17 +704,21 @@ export default function QuizEditorPage() {
                   </Button>
                 )}
               </div>
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleOptionDragEnd}>
+              <SortableContext items={questionForm.answerOptions.map((_, i) => String(i))} strategy={verticalListSortingStrategy}>
               {questionForm.answerOptions.map((option, index) => (
-                <div key={index} className="flex items-center gap-2">
+                <SortableItem key={index} id={String(index)}>
+                {({ dragHandleProps }) => (
+                <div className="flex items-center gap-2">
+                  <button type="button" className="cursor-grab text-muted-foreground hover:text-foreground" {...dragHandleProps}>
+                    <GripVertical className="h-4 w-4" />
+                  </button>
                   <input
                     type="checkbox"
                     checked={option.isCorrect}
                     onChange={() => toggleCorrectAnswer(index)}
                     className="shrink-0"
                   />
-                  <span className="text-sm font-medium shrink-0 w-6">
-                    {String.fromCharCode(65 + index)}.
-                  </span>
                   <Input
                     value={option.text}
                     onChange={(e) => updateOptionText(index, e.target.value)}
@@ -649,7 +743,11 @@ export default function QuizEditorPage() {
                     </Button>
                   )}
                 </div>
+                )}
+                </SortableItem>
               ))}
+              </SortableContext>
+              </DndContext>
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" type="button" onClick={() => setQuestionDialogOpen(false)}>
