@@ -387,6 +387,27 @@ public class QuizHub : Hub
         }
     }
 
+    public async Task StartCountdown(string sessionId, int seconds = 10)
+    {
+        var sessionGuid = Guid.Parse(sessionId);
+        var userId = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        var session = await _db.Sessions.FirstOrDefaultAsync(s => s.Id == sessionGuid);
+        if (session is null || session.CreatedByUserId != userId) return;
+
+        var hubContext = _hubContext;
+
+        _ = Task.Run(async () =>
+        {
+            for (int i = seconds; i >= 1; i--)
+            {
+                await hubContext.Clients.Group(sessionId).SendAsync("GameCountdown", i);
+                await Task.Delay(1000);
+            }
+            await hubContext.Clients.Group(sessionId).SendAsync("GameCountdown", 0);
+        });
+    }
+
     public async Task StartQuestion(string sessionId)
     {
         var sessionGuid = Guid.Parse(sessionId);

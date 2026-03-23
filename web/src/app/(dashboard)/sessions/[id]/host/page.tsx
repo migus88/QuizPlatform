@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import { Users, Play, Trophy, ArrowRight, ChevronRight, Check, Square } from "lucide-react";
 
-type HostState = "lobby" | "questionIntro" | "question" | "revealing" | "reveal" | "leaderboard" | "finished";
+type HostState = "lobby" | "countdown" | "questionIntro" | "question" | "revealing" | "reveal" | "leaderboard" | "finished";
 
 interface QuestionData {
   id: string;
@@ -81,6 +81,7 @@ export default function HostPage() {
   const [visibleOptions, setVisibleOptions] = useState(0);
   const [timerActive, setTimerActive] = useState(false);
   const [showEndDialog, setShowEndDialog] = useState(false);
+  const [countdown, setCountdown] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -198,6 +199,13 @@ export default function HostPage() {
           setHostState("finished");
         });
 
+        connection.on("GameCountdown", (seconds: number) => {
+          if (seconds > 0) {
+            setCountdown(seconds);
+            setHostState("countdown");
+          }
+        });
+
         connection.on(HubEvents.PARTICIPANT_UPDATED, (participant: ParticipantResponse) => {
           setParticipants((prev) =>
             prev.map((p) => (p.id === participant.id ? participant : p))
@@ -225,7 +233,13 @@ export default function HostPage() {
     try {
       await api.sessions.start(session.id);
       if (connectionRef.current) {
-        await connectionRef.current.invoke("StartQuestion", session.id);
+        await connectionRef.current.invoke("StartCountdown", session.id, 10);
+        // Wait for countdown to finish, then start first question
+        setTimeout(async () => {
+          if (connectionRef.current) {
+            await connectionRef.current.invoke("StartQuestion", session.id);
+          }
+        }, 11000);
       }
     } catch {
       toast.error("Failed to start session");
@@ -333,6 +347,19 @@ export default function HostPage() {
             <Square className="h-3 w-3 mr-1" />
             End
           </Button>
+        </div>
+        {endSessionDialog}
+      </div>
+    );
+  }
+
+  // COUNTDOWN
+  if (hostState === "countdown") {
+    return (
+      <div className="max-w-2xl mx-auto flex items-center justify-center min-h-[400px]">
+        <div className="text-center animate-in fade-in zoom-in duration-300">
+          <p className="text-2xl font-medium text-muted-foreground mb-4">Get ready!</p>
+          <p className="text-9xl font-bold font-mono">{countdown}</p>
         </div>
         {endSessionDialog}
       </div>

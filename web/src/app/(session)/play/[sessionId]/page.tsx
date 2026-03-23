@@ -14,7 +14,7 @@ import { AnimatedLeaderboard } from "@/components/animated-leaderboard";
 import { toast } from "sonner";
 import { Check, X, Trophy } from "lucide-react";
 
-type PlayState = "waiting" | "questionIntro" | "question" | "revealing" | "result" | "leaderboard" | "finished";
+type PlayState = "waiting" | "countdown" | "questionIntro" | "question" | "revealing" | "result" | "leaderboard" | "finished";
 
 interface QuestionData {
   id: string;
@@ -81,6 +81,7 @@ export default function PlayPage() {
   const [connected, setConnected] = useState(false);
   const [visibleOptions, setVisibleOptions] = useState(0);
   const [timerActive, setTimerActive] = useState(false);
+  const [countdown, setCountdown] = useState(0);
   const myScoreRef = useRef(0);
 
   useEffect(() => {
@@ -267,6 +268,13 @@ export default function PlayPage() {
           sessionStorage.removeItem("quizSession");
         });
 
+        connection.on("GameCountdown", (seconds: number) => {
+          if (seconds > 0) {
+            setCountdown(seconds);
+            setPlayState("countdown");
+          }
+        });
+
         connection.on(HubEvents.ALREADY_ANSWERED, () => {
           setAnswered(true);
         });
@@ -405,6 +413,18 @@ export default function PlayPage() {
     );
   }
 
+  // COUNTDOWN
+  if (playState === "countdown") {
+    return (
+      <div className="w-full max-w-md text-center">
+        <div className="animate-in fade-in zoom-in duration-300">
+          <p className="text-2xl font-medium text-muted-foreground mb-4">Get ready!</p>
+          <p className="text-9xl font-bold font-mono">{countdown}</p>
+        </div>
+      </div>
+    );
+  }
+
   // QUESTION INTRO - show question text, then reveal answers one by one
   if (playState === "questionIntro" && currentQuestion) {
     const sortedOptions = [...currentQuestion.options].sort(
@@ -417,17 +437,15 @@ export default function PlayPage() {
           Question {currentQuestion.questionNumber} of {currentQuestion.totalQuestions}
         </p>
 
-        {/* Reserve timer space to prevent layout jump */}
-        <p className="text-center text-3xl font-bold font-mono mb-2 invisible" aria-hidden="true">&nbsp;</p>
+        {/* Timer placeholder — keeps layout stable across phases */}
+        <div className="h-[44px] mb-2 flex items-center justify-center">
+          <span className="text-3xl font-bold font-mono invisible">&nbsp;</span>
+        </div>
         <div className="w-full h-2 mb-4" />
 
-        <Card className="mb-6">
-          <CardContent className="py-8">
-            <h2 className="text-2xl font-bold text-center animate-in fade-in duration-500">
-              <FormattedText text={currentQuestion.text} />
-            </h2>
-          </CardContent>
-        </Card>
+        <p className="text-center font-medium mb-4">
+          <FormattedText text={currentQuestion.text} />
+        </p>
 
         <div className="grid grid-cols-2 gap-3">
           {sortedOptions.map((option, index) => (
@@ -448,7 +466,7 @@ export default function PlayPage() {
   }
 
   // QUESTION - answering phase
-  if (playState === "question" && currentQuestion) {
+  if ((playState === "question") && currentQuestion) {
     const sortedOptions = [...currentQuestion.options].sort(
       (a, b) => a.order - b.order
     );
@@ -480,7 +498,9 @@ export default function PlayPage() {
         </p>
 
         {/* Timer */}
-        <p className="text-center text-3xl font-bold font-mono mb-2">{timer}</p>
+        <div className="h-[44px] mb-2 flex items-center justify-center">
+          <span className="text-3xl font-bold font-mono">{timer}</span>
+        </div>
         <div className="w-full bg-muted rounded-full h-2 mb-4 overflow-hidden">
           <div
             className="h-2 rounded-full bg-primary"
@@ -493,7 +513,7 @@ export default function PlayPage() {
           />
         </div>
 
-        <p className="text-center text-muted-foreground mb-4">
+        <p className="text-center font-medium mb-4">
           <FormattedText text={currentQuestion.text} />
         </p>
 
