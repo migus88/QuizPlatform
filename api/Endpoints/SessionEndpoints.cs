@@ -195,6 +195,8 @@ public static class SessionEndpoints
             session.EndedAt = DateTime.UtcNow;
             await db.SaveChangesAsync();
 
+            QuizHub.CleanupSession(id);
+
             // Notify all connected clients in the session
             await hubContext.Clients.Group(id.ToString()).SendAsync("SessionEnded");
 

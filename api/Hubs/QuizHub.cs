@@ -16,6 +16,13 @@ public class QuizHub : Hub
     // Track host connections: connectionId → sessionId
     private static readonly ConcurrentDictionary<string, Guid> _hostConnections = new();
 
+    // Track which phase each session is in: sessionId → phase name
+    // Phases: "lobby", "question", "reveal", "leaderboard", "finished"
+    private static readonly ConcurrentDictionary<Guid, string> _sessionPhase = new();
+
+    // Track reveal data per session for host rejoin
+    private static readonly ConcurrentDictionary<Guid, object> _sessionRevealData = new();
+
     private readonly AppDbContext _db;
     private readonly SessionTimerService _timerService;
     private readonly IHubContext<QuizHub> _hubContext;
@@ -27,6 +34,12 @@ public class QuizHub : Hub
         _timerService = timerService;
         _hubContext = hubContext;
         _scopeFactory = scopeFactory;
+    }
+
+    public static void CleanupSession(Guid sessionId)
+    {
+        _sessionPhase.TryRemove(sessionId, out _);
+        _sessionRevealData.TryRemove(sessionId, out _);
     }
 
     public async Task JoinSession(string joinCode, string nickname)
@@ -152,6 +165,10 @@ public class QuizHub : Hub
         var userId = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
 
         var session = await _db.Sessions
+            .Include(s => s.Quiz)
+                .ThenInclude(q => q.Questions.OrderBy(qu => qu.Order))
+                    .ThenInclude(q => q.AnswerOptions)
+            .Include(s => s.Participants)
             .FirstOrDefaultAsync(s => s.Id == sessionGuid);
 
         if (session is null || session.CreatedByUserId != userId)
@@ -162,6 +179,71 @@ public class QuizHub : Hub
 
         await Groups.AddToGroupAsync(Context.ConnectionId, sessionId);
         _hostConnections[Context.ConnectionId] = sessionGuid;
+
+        // Send current participants
+        var participants = session.Participants
+            .Select(p => new ParticipantResponse(p.Id, p.Nickname, p.Score, p.IsConnected, p.Emoji, p.Color))
+            .ToList();
+        await Clients.Caller.SendAsync("ParticipantList", participants);
+
+        // If session is active, send current state so host can resume
+        if (session.Status == SessionStatus.Active)
+        {
+            var phase = _sessionPhase.GetValueOrDefault(sessionGuid, "question");
+            var question = session.Quiz.Questions.ElementAtOrDefault(session.CurrentQuestionIndex);
+
+            if (question is not null)
+            {
+                var questionData = new
+                {
+                    id = question.Id,
+                    text = question.Text,
+                    questionNumber = session.CurrentQuestionIndex + 1,
+                    totalQuestions = session.Quiz.Questions.Count,
+                    timeLimitSeconds = question.TimeLimitSeconds,
+                    options = question.AnswerOptions.OrderBy(a => a.Order).Select(a => new
+                    {
+                        id = a.Id,
+                        text = a.Text,
+                        order = a.Order
+                    })
+                };
+
+                // Send the current question data
+                await Clients.Caller.SendAsync("QuestionStarted", questionData);
+
+                // Send the current phase so host knows where to resume
+                if (phase == "reveal" && _sessionRevealData.TryGetValue(sessionGuid, out var revealData))
+                {
+                    await Clients.Caller.SendAsync("AnswerRevealed", revealData);
+                }
+                else if (phase == "leaderboard")
+                {
+                    var lb = session.Participants
+                        .OrderByDescending(p => p.Score)
+                        .Select((p, i) => new LeaderboardEntry(i + 1, p.Nickname, p.Score, p.Emoji, p.Color))
+                        .ToList();
+                    await Clients.Caller.SendAsync("LeaderboardUpdated", lb);
+                }
+                else
+                {
+                    // In question or revealing phase — send timer state
+                    var timerState = _timerService.GetTimerState(sessionGuid);
+                    if (timerState.HasValue && timerState.Value.RemainingSeconds > 0)
+                    {
+                        await Clients.Caller.SendAsync("TimerStarted");
+                        await Clients.Caller.SendAsync("TimerTick", timerState.Value.RemainingSeconds);
+                    }
+
+                    // Send answer count
+                    var totalAnswered = await _db.ParticipantAnswers
+                        .CountAsync(a => a.QuestionId == question.Id &&
+                            _db.Participants.Any(p => p.Id == a.ParticipantId && p.SessionId == sessionGuid));
+                    var totalParticipants = session.Participants.Count(p => p.IsConnected);
+                    await Clients.Caller.SendAsync("AnswerSubmitted", new { totalAnswered, totalParticipants });
+                }
+            }
+        }
     }
 
     public async Task ChangeEmoji(string sessionId, string newEmoji)
@@ -322,6 +404,9 @@ public class QuizHub : Hub
         var question = session.Quiz.Questions.ElementAtOrDefault(session.CurrentQuestionIndex);
         if (question is null) return;
 
+        _sessionPhase[sessionGuid] = "question";
+        _sessionRevealData.TryRemove(sessionGuid, out _);
+
         var questionData = new
         {
             id = question.Id,
@@ -407,29 +492,16 @@ public class QuizHub : Hub
         var leaderboard = participants.Select((p, i) =>
             new LeaderboardEntry(i + 1, p.Nickname, p.Score, p.Emoji, p.Color)).ToList();
 
+        _sessionPhase[sessionGuid] = "leaderboard";
         await Clients.Group(sessionId).SendAsync("LeaderboardUpdated", leaderboard);
     }
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
-        // Check if the disconnecting client is a host
-        if (_hostConnections.TryRemove(Context.ConnectionId, out var hostedSessionId))
+        // Host disconnect: just remove from tracking, do NOT end session
+        if (_hostConnections.TryRemove(Context.ConnectionId, out _))
         {
-            var session = await _db.Sessions
-                .Include(s => s.Participants)
-                .FirstOrDefaultAsync(s => s.Id == hostedSessionId);
-
-            if (session is not null && session.Status != SessionStatus.Finished)
-            {
-                session.Status = SessionStatus.Finished;
-                session.EndedAt = DateTime.UtcNow;
-                await _db.SaveChangesAsync();
-
-                _timerService.CancelTimer(hostedSessionId);
-
-                await Clients.Group(hostedSessionId.ToString())
-                    .SendAsync("SessionEnded");
-            }
+            // Session continues running — timer tasks, answer reveals all work via IHubContext
         }
 
         // Handle participant disconnect
@@ -488,6 +560,9 @@ public class QuizHub : Hub
             })
         };
 
+        _sessionPhase[sessionId] = "reveal";
+        _sessionRevealData[sessionId] = revealData;
+
         await _hubContext.Clients.Group(sessionId.ToString()).SendAsync("AnswerRevealed", revealData);
     }
 
@@ -523,6 +598,9 @@ public class QuizHub : Hub
                 count = answers.Count(ans => ans.SelectedAnswerOptionId == a.Id)
             })
         };
+
+        _sessionPhase[sessionId] = "reveal";
+        _sessionRevealData[sessionId] = revealData;
 
         await hubContext.Clients.Group(sessionId.ToString()).SendAsync("AnswerRevealed", revealData);
     }

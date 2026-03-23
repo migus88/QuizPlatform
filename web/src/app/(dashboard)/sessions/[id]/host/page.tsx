@@ -102,6 +102,11 @@ export default function HostPage() {
         if (cancelled) return;
         connectionRef.current = connection;
 
+        // Receive full participant list on (re)join
+        connection.on("ParticipantList", (list: ParticipantResponse[]) => {
+          setParticipants(list);
+        });
+
         connection.on(HubEvents.PARTICIPANT_JOINED, (participant: ParticipantResponse) => {
           setParticipants((prev) => {
             if (prev.find((p) => p.id === participant.id)) return prev;
