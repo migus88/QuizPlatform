@@ -34,7 +34,7 @@ public class QuizHub : Hub
         var session = await _db.Sessions
             .Include(s => s.Quiz)
             .Include(s => s.Participants)
-            .FirstOrDefaultAsync(s => s.JoinCode == joinCode.ToUpper());
+            .FirstOrDefaultAsync(s => s.JoinCode == joinCode.Trim());
 
         if (session is null)
         {

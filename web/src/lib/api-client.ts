@@ -101,6 +101,12 @@ class ApiClient {
     clearAnalytics: (id: string) => this.request<void>("DELETE", `/api/sessions/${id}/analytics`),
   };
 
+  // Settings
+  settings = {
+    get: () => this.request<{ joinCodeLength: number }>("GET", "/api/settings"),
+    update: (data: { joinCodeLength: number }) => this.request<{ joinCodeLength: number }>("PUT", "/api/settings", data),
+  };
+
   // Profile
   profile = {
     get: () => this.request<UserResponse>("GET", "/api/profile"),

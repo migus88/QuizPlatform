@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, Users, BookOpen, LogIn, User, LogOut } from "lucide-react";
+import { Menu, Users, BookOpen, LogIn, User, LogOut, Settings } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -49,6 +49,9 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       : []),
     { href: "/quizzes", label: "Quizzes", icon: BookOpen },
     { href: "/join", label: "Join", icon: LogIn },
+    ...(isAdmin
+      ? [{ href: "/settings", label: "Settings", icon: Settings }]
+      : []),
   ];
 
   return (

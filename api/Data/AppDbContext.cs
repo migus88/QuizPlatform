@@ -14,6 +14,7 @@ public class AppDbContext : IdentityDbContext<User>
     public DbSet<Session> Sessions => Set<Session>();
     public DbSet<Participant> Participants => Set<Participant>();
     public DbSet<ParticipantAnswer> ParticipantAnswers => Set<ParticipantAnswer>();
+    public DbSet<PlatformSettings> PlatformSettings => Set<PlatformSettings>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -84,6 +85,12 @@ public class AppDbContext : IdentityDbContext<User>
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.SetNull);
             entity.HasIndex(e => e.SessionId);
+        });
+
+        builder.Entity<PlatformSettings>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasData(new PlatformSettings { Id = 1, JoinCodeLength = 4 });
         });
 
         builder.Entity<ParticipantAnswer>(entity =>

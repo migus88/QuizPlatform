@@ -107,6 +107,7 @@ app.MapProfileEndpoints();
 app.MapUserEndpoints();
 app.MapQuizEndpoints();
 app.MapSessionEndpoints();
+app.MapSettingsEndpoints();
 app.MapHub<QuizHub>("/hubs/quiz");
 
 app.MapGet("/health", () => Results.Ok(new { status = "healthy" }));

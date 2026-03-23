@@ -23,7 +23,7 @@ function JoinContent() {
   useEffect(() => {
     const codeParam = searchParams.get("code");
     if (codeParam) {
-      setCode(codeParam.toUpperCase());
+      setCode(codeParam.replace(/\D/g, ""));
     }
 
     // Check for existing active session
@@ -49,7 +49,7 @@ function JoinContent() {
     if (!code.trim()) return;
     setLoading(true);
     try {
-      const sessionData = await api.sessions.getByCode(code.trim().toUpperCase());
+      const sessionData = await api.sessions.getByCode(code.trim());
       setSession(sessionData);
       setStep("nickname");
     } catch {
@@ -90,10 +90,12 @@ function JoinContent() {
               <div className="space-y-2">
                 <Input
                   value={code}
-                  onChange={(e) => setCode(e.target.value.toUpperCase().slice(0, 6))}
-                  placeholder="ENTER CODE"
-                  className="text-center text-3xl font-mono font-bold h-16 tracking-[0.3em] uppercase"
-                  maxLength={6}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 8))}
+                  placeholder="Enter code"
+                  className="text-center text-3xl font-mono font-bold h-16 tracking-[0.3em]"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={8}
                   required
                   autoFocus
                 />
@@ -101,7 +103,7 @@ function JoinContent() {
               <Button
                 type="submit"
                 className="w-full h-14 text-lg"
-                disabled={loading || code.length < 4}
+                disabled={loading || code.length < 3}
               >
                 {loading ? "Finding quiz..." : "Join"}
               </Button>
