@@ -433,11 +433,7 @@ export default function PlayPage() {
 
     return (
       <div className="w-full max-w-lg">
-        <p className="text-center text-sm text-muted-foreground mb-2">
-          Question {currentQuestion.questionNumber} of {currentQuestion.totalQuestions}
-        </p>
-
-        {/* Timer placeholder — keeps layout stable across phases */}
+        {/* Timer placeholder at top — keeps layout stable across phases */}
         <div className="h-[44px] mb-2 flex items-center justify-center">
           <span className="text-3xl font-bold font-mono invisible">&nbsp;</span>
         </div>
@@ -473,31 +469,37 @@ export default function PlayPage() {
 
     if (answered) {
       return (
-        <div className="w-full max-w-md text-center">
-          <Card>
-            <CardContent className="py-12">
-              <p className="text-sm text-muted-foreground mb-4">
-                Question {currentQuestion.questionNumber} of {currentQuestion.totalQuestions}
-              </p>
-              <div className="mb-4">
-                <Check className="w-16 h-16 mx-auto text-emerald-500" />
-              </div>
-              <h2 className="text-2xl font-bold">Answer submitted!</h2>
-              <p className="text-muted-foreground mt-2">Waiting for everyone...</p>
-              <p className="text-4xl font-bold font-mono mt-4">{timer}</p>
-            </CardContent>
-          </Card>
+        <div className="w-full max-w-lg">
+          {/* Timer at top */}
+          <div className="h-[44px] mb-2 flex items-center justify-center">
+            <span className="text-3xl font-bold font-mono">{timer}</span>
+          </div>
+          <div className="w-full bg-muted rounded-full h-2 mb-4 overflow-hidden">
+            <div
+              className="h-2 rounded-full bg-primary"
+              style={{
+                width: "100%",
+                transform: `scaleX(${maxTime > 0 ? timer / maxTime : 0})`,
+                transformOrigin: "left",
+                transition: "transform 1s linear",
+              }}
+            />
+          </div>
+
+          <div className="text-center py-8">
+            <div className="mb-4">
+              <Check className="w-16 h-16 mx-auto text-emerald-500" />
+            </div>
+            <h2 className="text-2xl font-bold">Answer submitted!</h2>
+            <p className="text-muted-foreground mt-2">Waiting for everyone...</p>
+          </div>
         </div>
       );
     }
 
     return (
       <div className="w-full max-w-lg">
-        <p className="text-center text-sm text-muted-foreground mb-2">
-          Question {currentQuestion.questionNumber} of {currentQuestion.totalQuestions}
-        </p>
-
-        {/* Timer */}
+        {/* Timer at top */}
         <div className="h-[44px] mb-2 flex items-center justify-center">
           <span className="text-3xl font-bold font-mono">{timer}</span>
         </div>
