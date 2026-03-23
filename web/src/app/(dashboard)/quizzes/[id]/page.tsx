@@ -68,6 +68,11 @@ export default function QuizEditorPage() {
   const [questionForm, setQuestionForm] = useState<QuestionFormState>(emptyQuestionForm);
   const [deleteQuestionId, setDeleteQuestionId] = useState<string | null>(null);
 
+  // Bulk delete mode
+  const [editMode, setEditMode] = useState(false);
+  const [selectedQuestions, setSelectedQuestions] = useState<Set<string>>(new Set());
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
+
   const loadQuiz = useCallback(async () => {
     try {
       const data = await api.quizzes.getById(params.id);
@@ -232,6 +237,34 @@ export default function QuizEditorPage() {
     }
   };
 
+  const toggleSelectQuestion = (id: string) => {
+    setSelectedQuestions((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleBulkDeleteQuestions = async () => {
+    if (!quiz) return;
+    try {
+      await api.quizzes.bulkDeleteQuestions(quiz.id, Array.from(selectedQuestions));
+      toast.success(`Deleted ${selectedQuestions.size} question(s)`);
+      setSelectedQuestions(new Set());
+      setEditMode(false);
+      setShowBulkDeleteDialog(false);
+      loadQuiz();
+    } catch {
+      toast.error("Failed to delete questions");
+    }
+  };
+
+  const exitEditMode = () => {
+    setEditMode(false);
+    setSelectedQuestions(new Set());
+  };
+
   const handleDownloadTemplate = () => {
     const template = [
       {
@@ -377,26 +410,48 @@ export default function QuizEditorPage() {
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-2xl font-bold">Questions</h2>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={handleDownloadTemplate}>
-            <Download className="h-4 w-4 mr-1" />
-            Template
-          </Button>
-          <Button variant="outline" size="sm" asChild>
-            <label className="cursor-pointer">
-              <Upload className="h-4 w-4 mr-1" />
-              Import JSON
-              <input
-                type="file"
-                accept=".json"
-                onChange={handleImportJson}
-                className="hidden"
-              />
-            </label>
-          </Button>
-          <Button onClick={openAddQuestion}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Question
-          </Button>
+          {editMode ? (
+            <>
+              {selectedQuestions.size > 0 && (
+                <Button variant="destructive" size="sm" onClick={() => setShowBulkDeleteDialog(true)}>
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  Delete ({selectedQuestions.size})
+                </Button>
+              )}
+              <Button variant="outline" size="sm" onClick={exitEditMode}>
+                Done
+              </Button>
+            </>
+          ) : (
+            <>
+              {sortedQuestions.length > 0 && (
+                <Button variant="outline" size="sm" onClick={() => setEditMode(true)}>
+                  <Pencil className="h-4 w-4 mr-1" />
+                  Edit
+                </Button>
+              )}
+              <Button variant="outline" size="sm" onClick={handleDownloadTemplate}>
+                <Download className="h-4 w-4 mr-1" />
+                Template
+              </Button>
+              <Button variant="outline" size="sm" asChild>
+                <label className="cursor-pointer">
+                  <Upload className="h-4 w-4 mr-1" />
+                  Import JSON
+                  <input
+                    type="file"
+                    accept=".json"
+                    onChange={handleImportJson}
+                    className="hidden"
+                  />
+                </label>
+              </Button>
+              <Button onClick={openAddQuestion}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Question
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -412,38 +467,50 @@ export default function QuizEditorPage() {
             );
             const correctCount = sortedOptions.filter((o) => o.isCorrect).length;
             return (
-              <Card key={question.id}>
+              <Card key={question.id} className={editMode && selectedQuestions.has(question.id) ? "ring-2 ring-primary" : ""}>
                 <CardHeader>
                   <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <CardTitle className="text-base">
-                        Q{index + 1}: <FormattedText text={question.text} />
-                      </CardTitle>
-                      <div className="flex gap-3 mt-2 text-sm text-muted-foreground flex-wrap">
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {question.timeLimitSeconds}s
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Trophy className="h-3 w-3" />
-                          {question.points} pts
-                        </span>
-                        {correctCount > 1 && (
-                          <Badge variant="outline" className="text-xs">{correctCount} correct</Badge>
-                        )}
-                        {question.disableTimeScoring && (
-                          <Badge variant="outline" className="text-xs">Fixed score</Badge>
-                        )}
+                    <div className="flex items-start gap-3 flex-1">
+                      {editMode && (
+                        <input
+                          type="checkbox"
+                          checked={selectedQuestions.has(question.id)}
+                          onChange={() => toggleSelectQuestion(question.id)}
+                          className="h-4 w-4 mt-1"
+                        />
+                      )}
+                      <div className="flex-1">
+                        <CardTitle className="text-base">
+                          Q{index + 1}: <FormattedText text={question.text} />
+                        </CardTitle>
+                        <div className="flex gap-3 mt-2 text-sm text-muted-foreground flex-wrap">
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {question.timeLimitSeconds}s
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Trophy className="h-3 w-3" />
+                            {question.points} pts
+                          </span>
+                          {correctCount > 1 && (
+                            <Badge variant="outline" className="text-xs">{correctCount} correct</Badge>
+                          )}
+                          {question.disableTimeScoring && (
+                            <Badge variant="outline" className="text-xs">Fixed score</Badge>
+                          )}
+                        </div>
                       </div>
                     </div>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => openEditQuestion(question)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => setDeleteQuestionId(question.id)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    {!editMode && (
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => openEditQuestion(question)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => setDeleteQuestionId(question.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -602,6 +669,22 @@ export default function QuizEditorPage() {
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setDeleteQuestionId(null)}>Cancel</Button>
             <Button variant="destructive" onClick={handleDeleteQuestion}>Delete</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Delete Questions Confirmation */}
+      <Dialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Questions</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete {selectedQuestions.size} question(s)? This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setShowBulkDeleteDialog(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleBulkDeleteQuestions}>Delete</Button>
           </div>
         </DialogContent>
       </Dialog>

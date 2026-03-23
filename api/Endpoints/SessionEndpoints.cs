@@ -34,20 +34,30 @@ public static class SessionEndpoints
         }).RequireAuthorization();
 
         // List sessions for a quiz (host only)
-        group.MapGet("/by-quiz/{quizId:guid}", async (Guid quizId, ClaimsPrincipal principal, AppDbContext db) =>
+        group.MapGet("/by-quiz/{quizId:guid}", async (Guid quizId, ClaimsPrincipal principal, AppDbContext db, int page = 1, int pageSize = 20) =>
         {
             var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier)!;
-            var sessions = await db.Sessions
+            var query = db.Sessions
                 .Include(s => s.Quiz)
                 .Include(s => s.Participants)
-                .Where(s => s.QuizId == quizId && s.CreatedByUserId == userId)
+                .Where(s => s.QuizId == quizId && s.CreatedByUserId == userId);
+
+            var totalCount = await query.CountAsync();
+
+            var sessions = await query
                 .OrderByDescending(s => s.StartedAt ?? s.EndedAt ?? DateTime.MinValue)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync();
 
-            return Results.Ok(sessions.Select(s => new SessionResponse(
-                s.Id, s.QuizId, s.Quiz.Title, s.JoinCode,
-                s.Status.ToString(), s.CurrentQuestionIndex,
-                s.Participants.Count, s.StartedAt, s.EndedAt)));
+            return Results.Ok(new
+            {
+                items = sessions.Select(s => new SessionResponse(
+                    s.Id, s.QuizId, s.Quiz.Title, s.JoinCode,
+                    s.Status.ToString(), s.CurrentQuestionIndex,
+                    s.Participants.Count, s.StartedAt, s.EndedAt)),
+                totalCount, page, pageSize
+            });
         }).RequireAuthorization();
 
         // Create session (auth required) - returns existing active session if one exists
@@ -239,6 +249,24 @@ public static class SessionEndpoints
                 session.Participants.Count, session.StartedAt, session.EndedAt,
                 questions
             ));
+        }).RequireAuthorization();
+
+        // Bulk delete sessions
+        group.MapPost("/bulk-delete", async (List<Guid> sessionIds, ClaimsPrincipal principal, AppDbContext db) =>
+        {
+            var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            var isAdmin = principal.IsInRole("Admin");
+
+            var sessions = await db.Sessions
+                .Where(s => sessionIds.Contains(s.Id))
+                .ToListAsync();
+
+            if (!isAdmin && sessions.Any(s => s.CreatedByUserId != userId))
+                return Results.Forbid();
+
+            db.Sessions.RemoveRange(sessions);
+            await db.SaveChangesAsync();
+            return Results.NoContent();
         }).RequireAuthorization();
 
         // Delete session analytics

@@ -14,7 +14,7 @@ public static class QuizEndpoints
         var group = routes.MapGroup("/api/quizzes").RequireAuthorization().WithTags("Quizzes");
 
         // List quizzes (own quizzes only; admins see all)
-        group.MapGet("/", async (ClaimsPrincipal principal, AppDbContext db) =>
+        group.MapGet("/", async (ClaimsPrincipal principal, AppDbContext db, int page = 1, int pageSize = 20) =>
         {
             var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier)!;
             var isAdmin = principal.IsInRole("Admin");
@@ -23,14 +23,18 @@ public static class QuizEndpoints
             if (!isAdmin)
                 query = query.Where(q => q.CreatedByUserId == userId);
 
+            var totalCount = await query.CountAsync();
+
             var quizzes = await query
                 .OrderByDescending(q => q.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .Select(q => new QuizListResponse(
                     q.Id, q.Title, q.Description,
                     q.Questions.Count, q.CreatedAt))
                 .ToListAsync();
 
-            return Results.Ok(quizzes);
+            return Results.Ok(new { items = quizzes, totalCount, page, pageSize });
         });
 
         // Get quiz by id (owner or admin)
@@ -220,6 +224,29 @@ public static class QuizEndpoints
             if (question is null) return Results.NotFound();
 
             db.Questions.Remove(question);
+            await db.SaveChangesAsync();
+
+            // Reorder remaining questions
+            var remaining = await db.Questions.Where(q => q.QuizId == quizId).OrderBy(q => q.Order).ToListAsync();
+            for (int i = 0; i < remaining.Count; i++)
+                remaining[i].Order = i + 1;
+            await db.SaveChangesAsync();
+
+            return Results.NoContent();
+        });
+
+        // Bulk delete questions (owner or admin)
+        group.MapPost("/{quizId:guid}/questions/bulk-delete", async (Guid quizId, List<Guid> questionIds, ClaimsPrincipal principal, AppDbContext db) =>
+        {
+            var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            var isAdmin = principal.IsInRole("Admin");
+
+            var quiz = await db.Quizzes.FindAsync(quizId);
+            if (quiz is null) return Results.NotFound();
+            if (!isAdmin && quiz.CreatedByUserId != userId) return Results.Forbid();
+
+            var questions = await db.Questions.Where(q => q.QuizId == quizId && questionIds.Contains(q.Id)).ToListAsync();
+            db.Questions.RemoveRange(questions);
             await db.SaveChangesAsync();
 
             // Reorder remaining questions

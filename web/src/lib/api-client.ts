@@ -7,6 +7,7 @@ import type {
   CreateUserRequest,
   LeaderboardEntry,
   LoginRequest,
+  PaginatedResponse,
   QuizDetailResponse,
   QuizListResponse,
   QuestionResponse,
@@ -71,7 +72,8 @@ class ApiClient {
 
   // Quizzes
   quizzes = {
-    list: () => this.request<QuizListResponse[]>("GET", "/api/quizzes"),
+    list: (page = 1, pageSize = 20) =>
+      this.request<PaginatedResponse<QuizListResponse>>("GET", `/api/quizzes?page=${page}&pageSize=${pageSize}`),
     getById: (id: string) => this.request<QuizDetailResponse>("GET", `/api/quizzes/${id}`),
     create: (data: CreateQuizRequest) => this.request<QuizDetailResponse>("POST", "/api/quizzes", data),
     update: (id: string, data: UpdateQuizRequest) => this.request<QuizDetailResponse>("PUT", `/api/quizzes/${id}`, data),
@@ -82,6 +84,8 @@ class ApiClient {
       this.request<QuestionResponse>("PUT", `/api/quizzes/${quizId}/questions/${questionId}`, data),
     deleteQuestion: (quizId: string, questionId: string) =>
       this.request<void>("DELETE", `/api/quizzes/${quizId}/questions/${questionId}`),
+    bulkDeleteQuestions: (quizId: string, questionIds: string[]) =>
+      this.request<void>("POST", `/api/quizzes/${quizId}/questions/bulk-delete`, questionIds),
     reorderQuestions: (quizId: string, questionIds: string[]) =>
       this.request<void>("PUT", `/api/quizzes/${quizId}/questions/reorder`, questionIds),
   };
@@ -92,13 +96,15 @@ class ApiClient {
     getById: (id: string) => this.request<SessionResponse>("GET", `/api/sessions/${id}`),
     getByCode: (code: string) => this.request<SessionResponse>("GET", `/api/sessions/code/${code}`),
     getMyActive: () => this.request<SessionResponse[]>("GET", "/api/sessions/my-active"),
-    getByQuiz: (quizId: string) => this.request<SessionResponse[]>("GET", `/api/sessions/by-quiz/${quizId}`),
+    getByQuiz: (quizId: string, page = 1, pageSize = 20) =>
+      this.request<PaginatedResponse<SessionResponse>>("GET", `/api/sessions/by-quiz/${quizId}?page=${page}&pageSize=${pageSize}`),
     start: (id: string) => this.request<SessionResponse>("POST", `/api/sessions/${id}/start`),
     nextQuestion: (id: string) => this.request<SessionResponse>("POST", `/api/sessions/${id}/next-question`),
     finish: (id: string) => this.request<SessionResponse>("POST", `/api/sessions/${id}/finish`),
     leaderboard: (id: string) => this.request<LeaderboardEntry[]>("GET", `/api/sessions/${id}/leaderboard`),
     analytics: (id: string) => this.request<SessionAnalyticsResponse>("GET", `/api/sessions/${id}/analytics`),
     clearAnalytics: (id: string) => this.request<void>("DELETE", `/api/sessions/${id}/analytics`),
+    bulkDelete: (sessionIds: string[]) => this.request<void>("POST", "/api/sessions/bulk-delete", sessionIds),
   };
 
   // Settings
