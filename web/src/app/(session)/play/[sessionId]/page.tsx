@@ -457,6 +457,10 @@ export default function PlayPage() {
             </div>
           ))}
         </div>
+
+        <p className="text-center text-sm text-muted-foreground mt-6">
+          Question {currentQuestion.questionNumber} of {currentQuestion.totalQuestions}
+        </p>
       </div>
     );
   }
@@ -493,6 +497,10 @@ export default function PlayPage() {
             <h2 className="text-2xl font-bold">Answer submitted!</h2>
             <p className="text-muted-foreground mt-2">Waiting for everyone...</p>
           </div>
+
+          <p className="text-center text-sm text-muted-foreground mt-6">
+            Question {currentQuestion.questionNumber} of {currentQuestion.totalQuestions}
+          </p>
         </div>
       );
     }
@@ -531,6 +539,10 @@ export default function PlayPage() {
             </button>
           ))}
         </div>
+
+        <p className="text-center text-sm text-muted-foreground mt-6">
+          Question {currentQuestion.questionNumber} of {currentQuestion.totalQuestions}
+        </p>
       </div>
     );
   }
