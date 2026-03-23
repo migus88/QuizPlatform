@@ -23,7 +23,37 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Check, Clock, Trophy, X } from "lucide-react";
+import { Plus, Pencil, Trash2, Check, Clock, Trophy, X, Upload, Download } from "lucide-react";
+
+function parseCsvLine(line: string): string[] {
+  const result: string[] = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"' && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else if (ch === '"') {
+        inQuotes = false;
+      } else {
+        current += ch;
+      }
+    } else {
+      if (ch === '"') {
+        inQuotes = true;
+      } else if (ch === ",") {
+        result.push(current.trim());
+        current = "";
+      } else {
+        current += ch;
+      }
+    }
+  }
+  result.push(current.trim());
+  return result;
+}
 
 interface OptionFormState {
   text: string;
@@ -234,6 +264,84 @@ export default function QuizEditorPage() {
     }
   };
 
+  const handleDownloadTemplate = () => {
+    const header = "Question,TimeLimitSeconds,Points,DisableTimeScoring,Answer1,Correct1,Points1,Answer2,Correct2,Points2,Answer3,Correct3,Points3,Answer4,Correct4,Points4";
+    const example = '"What is 2+2?",30,100,false,"4",true,,"3",false,,"5",false,,"2",false,';
+    const blob = new Blob([header + "\n" + example + "\n"], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "questions_template.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportCsv = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!quiz || !e.target.files?.[0]) return;
+    const file = e.target.files[0];
+    const text = await file.text();
+    const lines = text.split("\n").filter((l) => l.trim());
+
+    if (lines.length < 2) {
+      toast.error("CSV must have a header row and at least one data row");
+      e.target.value = "";
+      return;
+    }
+
+    let imported = 0;
+    let failed = 0;
+
+    for (let i = 1; i < lines.length; i++) {
+      try {
+        const cols = parseCsvLine(lines[i]);
+        if (cols.length < 8) { failed++; continue; }
+
+        const questionText = cols[0];
+        const timeLimitSeconds = parseInt(cols[1]) || 30;
+        const points = parseInt(cols[2]) || 100;
+        const disableTimeScoring = cols[3]?.toLowerCase() === "true";
+
+        const answerOptions: CreateAnswerOptionRequest[] = [];
+        for (let j = 4; j < cols.length; j += 3) {
+          const answerText = cols[j]?.trim();
+          if (!answerText) continue;
+          const isCorrect = cols[j + 1]?.toLowerCase() === "true";
+          const pointsOverride = cols[j + 2]?.trim() ? parseInt(cols[j + 2]) : undefined;
+          answerOptions.push({
+            text: answerText,
+            isCorrect,
+            pointsOverride: isCorrect && pointsOverride ? pointsOverride : undefined,
+          });
+        }
+
+        if (answerOptions.length < 2 || !answerOptions.some((a) => a.isCorrect)) {
+          failed++;
+          continue;
+        }
+
+        await api.quizzes.addQuestion(quiz.id, {
+          text: questionText,
+          timeLimitSeconds,
+          points,
+          disableTimeScoring,
+          answerOptions,
+        });
+        imported++;
+      } catch {
+        failed++;
+      }
+    }
+
+    e.target.value = "";
+    if (imported > 0) {
+      toast.success(`Imported ${imported} question${imported > 1 ? "s" : ""}`);
+      loadQuiz();
+    }
+    if (failed > 0) {
+      toast.error(`${failed} row${failed > 1 ? "s" : ""} failed to import`);
+    }
+  };
+
   if (loading) {
     return <div className="text-center py-8 text-muted-foreground">Loading...</div>;
   }
@@ -294,10 +402,28 @@ export default function QuizEditorPage() {
       {/* Questions Section */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-2xl font-bold">Questions</h2>
-        <Button onClick={openAddQuestion}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Question
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={handleDownloadTemplate}>
+            <Download className="h-4 w-4 mr-1" />
+            Template
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <label className="cursor-pointer">
+              <Upload className="h-4 w-4 mr-1" />
+              Import CSV
+              <input
+                type="file"
+                accept=".csv"
+                onChange={handleImportCsv}
+                className="hidden"
+              />
+            </label>
+          </Button>
+          <Button onClick={openAddQuestion}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Question
+          </Button>
+        </div>
       </div>
 
       {sortedQuestions.length === 0 ? (

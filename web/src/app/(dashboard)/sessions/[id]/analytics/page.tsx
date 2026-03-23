@@ -16,7 +16,14 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { ArrowLeft, Trash2, Check, X } from "lucide-react";
+import { ArrowLeft, Trash2, Check, X, Download } from "lucide-react";
+
+function escapeCsv(value: string): string {
+  if (value.includes(",") || value.includes('"') || value.includes("\n")) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+}
 
 export default function AnalyticsPage() {
   const params = useParams<{ id: string }>();
@@ -53,6 +60,35 @@ export default function AnalyticsPage() {
     }
   };
 
+  const handleExportCsv = () => {
+    if (!analytics) return;
+    const rows: string[] = [];
+    rows.push(["Question", "Player", "Emoji", "Answer", "Correct", "Points"].map(escapeCsv).join(","));
+
+    for (const q of analytics.questions) {
+      const options = [...q.options].sort((a, b) => a.order - b.order);
+      for (const answer of q.participantAnswers) {
+        const selectedOption = options.find((o) => o.id === answer.selectedAnswerOptionId);
+        rows.push([
+          q.text,
+          answer.nickname,
+          answer.emoji,
+          selectedOption?.text ?? "",
+          answer.isCorrect ? "Yes" : "No",
+          String(answer.awardedPoints),
+        ].map(escapeCsv).join(","));
+      }
+    }
+
+    const blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${analytics.quizTitle.replace(/[^a-zA-Z0-9]/g, "_")}_analytics.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   if (loading) {
     return <div className="text-center py-8 text-muted-foreground">Loading analytics...</div>;
   }
@@ -81,10 +117,16 @@ export default function AnalyticsPage() {
             )}
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={() => setShowClearDialog(true)}>
-          <Trash2 className="w-4 h-4 mr-1" />
-          Clear Data
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={handleExportCsv}>
+            <Download className="w-4 h-4 mr-1" />
+            Export CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setShowClearDialog(true)}>
+            <Trash2 className="w-4 h-4 mr-1" />
+            Clear Data
+          </Button>
+        </div>
       </div>
 
       <div className="space-y-4">
