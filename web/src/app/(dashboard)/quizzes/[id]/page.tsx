@@ -45,9 +45,15 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 
 interface OptionFormState {
+  _id: string;
   text: string;
   isCorrect: boolean;
   pointsOverride?: number | null;
+}
+
+let _optionIdCounter = 0;
+function nextOptionId() {
+  return `opt-${++_optionIdCounter}`;
 }
 
 interface QuestionFormState {
@@ -58,16 +64,18 @@ interface QuestionFormState {
   answerOptions: OptionFormState[];
 }
 
-const emptyQuestionForm: QuestionFormState = {
-  text: "",
-  timeLimitSeconds: 30,
-  points: 100,
-  disableTimeScoring: false,
-  answerOptions: [
-    { text: "", isCorrect: true },
-    { text: "", isCorrect: false },
-  ],
-};
+function makeEmptyQuestionForm(): QuestionFormState {
+  return {
+    text: "",
+    timeLimitSeconds: 30,
+    points: 100,
+    disableTimeScoring: false,
+    answerOptions: [
+      { _id: nextOptionId(), text: "", isCorrect: true },
+      { _id: nextOptionId(), text: "", isCorrect: false },
+    ],
+  };
+}
 
 function SortableItem({ id, children }: { id: string; children: (props: { dragHandleProps: Record<string, unknown> }) => React.ReactNode }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
@@ -97,7 +105,7 @@ export default function QuizEditorPage() {
   // Question dialogs
   const [questionDialogOpen, setQuestionDialogOpen] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<QuestionResponse | null>(null);
-  const [questionForm, setQuestionForm] = useState<QuestionFormState>(emptyQuestionForm);
+  const [questionForm, setQuestionForm] = useState<QuestionFormState>(makeEmptyQuestionForm);
   const [deleteQuestionId, setDeleteQuestionId] = useState<string | null>(null);
 
   // Bulk delete mode
@@ -149,10 +157,7 @@ export default function QuizEditorPage() {
 
   const openAddQuestion = () => {
     setEditingQuestion(null);
-    setQuestionForm({
-      ...emptyQuestionForm,
-      answerOptions: emptyQuestionForm.answerOptions.map((o) => ({ ...o })),
-    });
+    setQuestionForm(makeEmptyQuestionForm());
     setQuestionDialogOpen(true);
   };
 
@@ -166,6 +171,7 @@ export default function QuizEditorPage() {
       answerOptions: question.answerOptions
         .sort((a, b) => a.order - b.order)
         .map((o) => ({
+          _id: nextOptionId(),
           text: o.text,
           isCorrect: o.isCorrect,
           pointsOverride: o.pointsOverride,
@@ -208,7 +214,7 @@ export default function QuizEditorPage() {
     if (questionForm.answerOptions.length >= 6) return;
     setQuestionForm((prev) => ({
       ...prev,
-      answerOptions: [...prev.answerOptions, { text: "", isCorrect: false }],
+      answerOptions: [...prev.answerOptions, { _id: nextOptionId(), text: "", isCorrect: false }],
     }));
   };
 
@@ -327,13 +333,14 @@ export default function QuizEditorPage() {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
-    const oldIndex = Number(active.id);
-    const newIndex = Number(over.id);
-
-    setQuestionForm((prev) => ({
-      ...prev,
-      answerOptions: arrayMove(prev.answerOptions, oldIndex, newIndex),
-    }));
+    setQuestionForm((prev) => {
+      const oldIndex = prev.answerOptions.findIndex((o) => o._id === active.id);
+      const newIndex = prev.answerOptions.findIndex((o) => o._id === over.id);
+      return {
+        ...prev,
+        answerOptions: arrayMove(prev.answerOptions, oldIndex, newIndex),
+      };
+    });
   };
 
   const handleDownloadTemplate = () => {
@@ -705,9 +712,9 @@ export default function QuizEditorPage() {
                 )}
               </div>
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleOptionDragEnd}>
-              <SortableContext items={questionForm.answerOptions.map((_, i) => String(i))} strategy={verticalListSortingStrategy}>
+              <SortableContext items={questionForm.answerOptions.map((o) => o._id)} strategy={verticalListSortingStrategy}>
               {questionForm.answerOptions.map((option, index) => (
-                <SortableItem key={index} id={String(index)}>
+                <SortableItem key={option._id} id={option._id}>
                 {({ dragHandleProps }) => (
                 <div className="flex items-center gap-2">
                   <button type="button" className="cursor-grab text-muted-foreground hover:text-foreground" {...dragHandleProps}>
