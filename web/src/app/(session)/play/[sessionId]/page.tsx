@@ -443,7 +443,7 @@ export default function PlayPage() {
         </div>
         <div className="w-full h-2 mb-4" />
 
-        <p className="text-center font-medium mb-4">
+        <p className="text-center text-xl font-bold mb-4">
           <FormattedText text={currentQuestion.text} />
         </p>
 
@@ -513,7 +513,7 @@ export default function PlayPage() {
           />
         </div>
 
-        <p className="text-center font-medium mb-4">
+        <p className="text-center text-xl font-bold mb-4">
           <FormattedText text={currentQuestion.text} />
         </p>
 
