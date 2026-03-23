@@ -23,7 +23,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Play, Square } from "lucide-react";
+import { Plus, Pencil, Trash2, Play, Square, History } from "lucide-react";
 
 export default function QuizzesPage() {
   const [quizzes, setQuizzes] = useState<QuizListResponse[]>([]);
@@ -176,12 +176,17 @@ export default function QuizzesPage() {
                           Host
                         </Button>
                       )}
+                      <Link href={`/quizzes/${quiz.id}/sessions`}>
+                        <Button variant="ghost" size="icon" title="Session History">
+                          <History className="h-4 w-4" />
+                        </Button>
+                      </Link>
                       <Link href={`/quizzes/${quiz.id}`}>
-                        <Button variant="ghost" size="icon">
+                        <Button variant="ghost" size="icon" title="Edit">
                           <Pencil className="h-4 w-4" />
                         </Button>
                       </Link>
-                      <Button variant="ghost" size="icon" onClick={() => setDeleteId(quiz.id)}>
+                      <Button variant="ghost" size="icon" title="Delete" onClick={() => setDeleteId(quiz.id)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>

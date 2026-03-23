@@ -33,6 +33,23 @@ public static class SessionEndpoints
                 s.Participants.Count, s.StartedAt, s.EndedAt)));
         }).RequireAuthorization();
 
+        // List sessions for a quiz (host only)
+        group.MapGet("/by-quiz/{quizId:guid}", async (Guid quizId, ClaimsPrincipal principal, AppDbContext db) =>
+        {
+            var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            var sessions = await db.Sessions
+                .Include(s => s.Quiz)
+                .Include(s => s.Participants)
+                .Where(s => s.QuizId == quizId && s.CreatedByUserId == userId)
+                .OrderByDescending(s => s.StartedAt ?? s.EndedAt ?? DateTime.MinValue)
+                .ToListAsync();
+
+            return Results.Ok(sessions.Select(s => new SessionResponse(
+                s.Id, s.QuizId, s.Quiz.Title, s.JoinCode,
+                s.Status.ToString(), s.CurrentQuestionIndex,
+                s.Participants.Count, s.StartedAt, s.EndedAt)));
+        }).RequireAuthorization();
+
         // Create session (auth required) - returns existing active session if one exists
         group.MapPost("/", async (CreateSessionRequest request, ClaimsPrincipal principal, AppDbContext db) =>
         {

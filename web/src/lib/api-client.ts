@@ -91,6 +91,7 @@ class ApiClient {
     getById: (id: string) => this.request<SessionResponse>("GET", `/api/sessions/${id}`),
     getByCode: (code: string) => this.request<SessionResponse>("GET", `/api/sessions/code/${code}`),
     getMyActive: () => this.request<SessionResponse[]>("GET", "/api/sessions/my-active"),
+    getByQuiz: (quizId: string) => this.request<SessionResponse[]>("GET", `/api/sessions/by-quiz/${quizId}`),
     start: (id: string) => this.request<SessionResponse>("POST", `/api/sessions/${id}/start`),
     nextQuestion: (id: string) => this.request<SessionResponse>("POST", `/api/sessions/${id}/next-question`),
     finish: (id: string) => this.request<SessionResponse>("POST", `/api/sessions/${id}/finish`),
