@@ -23,37 +23,8 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { FormattedText } from "@/components/formatted-text";
 import { Plus, Pencil, Trash2, Check, Clock, Trophy, X, Upload, Download } from "lucide-react";
-
-function parseCsvLine(line: string): string[] {
-  const result: string[] = [];
-  let current = "";
-  let inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (inQuotes) {
-      if (ch === '"' && line[i + 1] === '"') {
-        current += '"';
-        i++;
-      } else if (ch === '"') {
-        inQuotes = false;
-      } else {
-        current += ch;
-      }
-    } else {
-      if (ch === '"') {
-        inQuotes = true;
-      } else if (ch === ",") {
-        result.push(current.trim());
-        current = "";
-      } else {
-        current += ch;
-      }
-    }
-  }
-  result.push(current.trim());
-  return result;
-}
 
 interface OptionFormState {
   text: string;
@@ -265,25 +236,58 @@ export default function QuizEditorPage() {
   };
 
   const handleDownloadTemplate = () => {
-    const header = "Question,TimeLimitSeconds,Points,DisableTimeScoring,Answer1,Correct1,Points1,Answer2,Correct2,Points2,Answer3,Correct3,Points3,Answer4,Correct4,Points4";
-    const example = '"What is 2+2?",30,100,false,"4",true,,"3",false,,"5",false,,"2",false,';
-    const blob = new Blob([header + "\n" + example + "\n"], { type: "text/csv;charset=utf-8;" });
+    const template = [
+      {
+        text: "What is 2+2?",
+        timeLimitSeconds: 30,
+        points: 100,
+        disableTimeScoring: false,
+        answerOptions: [
+          { text: "4", isCorrect: true },
+          { text: "3", isCorrect: false },
+          { text: "5", isCorrect: false },
+          { text: "2", isCorrect: false },
+        ],
+      },
+      {
+        text: "Which of these are **prime** numbers?",
+        timeLimitSeconds: 20,
+        points: 200,
+        disableTimeScoring: true,
+        answerOptions: [
+          { text: "7", isCorrect: true, pointsOverride: 100 },
+          { text: "11", isCorrect: true, pointsOverride: 200 },
+          { text: "9", isCorrect: false },
+        ],
+      },
+    ];
+    const blob = new Blob([JSON.stringify(template, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "questions_template.csv";
+    a.download = "questions_template.json";
     a.click();
     URL.revokeObjectURL(url);
   };
 
-  const handleImportCsv = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportJson = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!quiz || !e.target.files?.[0]) return;
     const file = e.target.files[0];
     const text = await file.text();
-    const lines = text.split("\n").filter((l) => l.trim());
 
-    if (lines.length < 2) {
-      toast.error("CSV must have a header row and at least one data row");
+    let questions: Array<{
+      text: string;
+      timeLimitSeconds?: number;
+      points?: number;
+      disableTimeScoring?: boolean;
+      answerOptions: Array<{ text: string; isCorrect: boolean; pointsOverride?: number }>;
+    }>;
+
+    try {
+      questions = JSON.parse(text);
+      if (!Array.isArray(questions)) throw new Error();
+    } catch {
+      toast.error("Invalid JSON file. Must be an array of questions.");
       e.target.value = "";
       return;
     }
@@ -291,40 +295,27 @@ export default function QuizEditorPage() {
     let imported = 0;
     let failed = 0;
 
-    for (let i = 1; i < lines.length; i++) {
+    for (const q of questions) {
       try {
-        const cols = parseCsvLine(lines[i]);
-        if (cols.length < 8) { failed++; continue; }
-
-        const questionText = cols[0];
-        const timeLimitSeconds = parseInt(cols[1]) || 30;
-        const points = parseInt(cols[2]) || 100;
-        const disableTimeScoring = cols[3]?.toLowerCase() === "true";
-
-        const answerOptions: CreateAnswerOptionRequest[] = [];
-        for (let j = 4; j < cols.length; j += 3) {
-          const answerText = cols[j]?.trim();
-          if (!answerText) continue;
-          const isCorrect = cols[j + 1]?.toLowerCase() === "true";
-          const pointsOverride = cols[j + 2]?.trim() ? parseInt(cols[j + 2]) : undefined;
-          answerOptions.push({
-            text: answerText,
-            isCorrect,
-            pointsOverride: isCorrect && pointsOverride ? pointsOverride : undefined,
-          });
+        if (!q.text?.trim() || !Array.isArray(q.answerOptions) || q.answerOptions.length < 2) {
+          failed++;
+          continue;
         }
-
-        if (answerOptions.length < 2 || !answerOptions.some((a) => a.isCorrect)) {
+        if (!q.answerOptions.some((a) => a.isCorrect)) {
           failed++;
           continue;
         }
 
         await api.quizzes.addQuestion(quiz.id, {
-          text: questionText,
-          timeLimitSeconds,
-          points,
-          disableTimeScoring,
-          answerOptions,
+          text: q.text.trim(),
+          timeLimitSeconds: q.timeLimitSeconds ?? 30,
+          points: q.points ?? 100,
+          disableTimeScoring: q.disableTimeScoring ?? false,
+          answerOptions: q.answerOptions.map((a) => ({
+            text: a.text.trim(),
+            isCorrect: a.isCorrect,
+            pointsOverride: a.isCorrect && a.pointsOverride ? a.pointsOverride : undefined,
+          })),
         });
         imported++;
       } catch {
@@ -410,11 +401,11 @@ export default function QuizEditorPage() {
           <Button variant="outline" size="sm" asChild>
             <label className="cursor-pointer">
               <Upload className="h-4 w-4 mr-1" />
-              Import CSV
+              Import JSON
               <input
                 type="file"
-                accept=".csv"
-                onChange={handleImportCsv}
+                accept=".json"
+                onChange={handleImportJson}
                 className="hidden"
               />
             </label>
@@ -443,7 +434,7 @@ export default function QuizEditorPage() {
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <CardTitle className="text-base">
-                        Q{index + 1}: {question.text}
+                        Q{index + 1}: <FormattedText text={question.text} />
                       </CardTitle>
                       <div className="flex gap-3 mt-2 text-sm text-muted-foreground flex-wrap">
                         <span className="flex items-center gap-1">
@@ -484,7 +475,7 @@ export default function QuizEditorPage() {
                         }`}
                       >
                         {option.isCorrect && <Check className="h-3 w-3 shrink-0" />}
-                        <span className="flex-1">{String.fromCharCode(65 + optIndex)}. {option.text}</span>
+                        <span className="flex-1">{String.fromCharCode(65 + optIndex)}. <FormattedText text={option.text} /></span>
                         {option.isCorrect && option.pointsOverride != null && (
                           <span className="text-xs font-mono opacity-70">{option.pointsOverride}pts</span>
                         )}

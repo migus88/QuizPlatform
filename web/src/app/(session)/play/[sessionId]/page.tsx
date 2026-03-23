@@ -9,6 +9,7 @@ import type { AnswerOptionResponse, LeaderboardEntry, ParticipantResponse } from
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PlayerAvatar } from "@/components/player-avatar";
+import { FormattedText } from "@/components/formatted-text";
 import { AnimatedLeaderboard } from "@/components/animated-leaderboard";
 import { toast } from "sonner";
 import { Check, X, Trophy } from "lucide-react";
@@ -424,7 +425,7 @@ export default function PlayPage() {
         </div>
 
         <p className="text-center text-muted-foreground mb-4">
-          {currentQuestion.text}
+          <FormattedText text={currentQuestion.text} />
         </p>
 
         <div className="grid grid-cols-2 gap-3">
@@ -435,7 +436,7 @@ export default function PlayPage() {
               className={`${optionColorsInteractive[index % 6]} text-white rounded-xl p-4 min-h-[80px] text-lg font-medium transition-transform active:scale-95 disabled:opacity-50`}
               disabled={answered}
             >
-              {option.text}
+              <FormattedText text={option.text} />
             </button>
           ))}
         </div>
@@ -489,7 +490,7 @@ export default function PlayPage() {
         {/* Question text */}
         <Card className="mb-4">
           <CardContent className="py-4">
-            <p className="text-center font-medium">{currentQuestion.text}</p>
+            <p className="text-center font-medium"><FormattedText text={currentQuestion.text} /></p>
           </CardContent>
         </Card>
 
@@ -513,7 +514,7 @@ export default function PlayPage() {
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-lg font-medium">{option.text}</span>
+                  <span className="text-lg font-medium"><FormattedText text={option.text} /></span>
                   <span className="text-sm font-mono opacity-80">{count}</span>
                 </div>
                 {isCorrect && (

@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PlayerAvatar, RankBadge } from "@/components/player-avatar";
+import { FormattedText } from "@/components/formatted-text";
 import { AnimatedLeaderboard } from "@/components/animated-leaderboard";
 import { toast } from "sonner";
 import { Users, Play, Trophy, ArrowRight, ChevronRight, Check } from "lucide-react";
@@ -319,7 +320,7 @@ export default function HostPage() {
 
         <Card className="mb-6">
           <CardContent className="py-8">
-            <h2 className="text-2xl font-bold text-center">{currentQuestion.text}</h2>
+            <h2 className="text-2xl font-bold text-center"><FormattedText text={currentQuestion.text} /></h2>
           </CardContent>
         </Card>
 
@@ -329,7 +330,7 @@ export default function HostPage() {
               key={option.id}
               className={`${optionColors[index % 6]} rounded-lg p-6 text-center text-lg font-medium`}
             >
-              {String.fromCharCode(65 + index)}. {option.text}
+              {String.fromCharCode(65 + index)}. <FormattedText text={option.text} />
             </div>
           ))}
         </div>
@@ -374,7 +375,7 @@ export default function HostPage() {
 
         <Card className="mb-6">
           <CardContent className="py-6">
-            <h2 className="text-xl font-bold text-center">{currentQuestion.text}</h2>
+            <h2 className="text-xl font-bold text-center"><FormattedText text={currentQuestion.text} /></h2>
           </CardContent>
         </Card>
 
@@ -396,7 +397,7 @@ export default function HostPage() {
                   <div className="flex items-center gap-2">
                     {isCorrect && <Check className="w-5 h-5 text-emerald-500" />}
                     <span className={`font-medium ${isCorrect ? "text-emerald-700 dark:text-emerald-300" : ""}`}>
-                      {String.fromCharCode(65 + index)}. {option.text}
+                      {String.fromCharCode(65 + index)}. <FormattedText text={option.text} />
                     </span>
                   </div>
                   <span className="text-sm font-mono">{votes}</span>

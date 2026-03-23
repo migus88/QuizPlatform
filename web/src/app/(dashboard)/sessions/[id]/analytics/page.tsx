@@ -16,6 +16,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { FormattedText } from "@/components/formatted-text";
 import { ArrowLeft, Trash2, Check, X, Download } from "lucide-react";
 
 function escapeCsv(value: string): string {
@@ -182,7 +183,7 @@ function QuestionCard({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <span className="text-sm font-mono text-muted-foreground">Q{question.order + 1}</span>
-              <span className="font-medium">{question.text}</span>
+              <span className="font-medium"><FormattedText text={question.text} /></span>
             </div>
             <div className="flex items-center gap-3 shrink-0">
               <span className="text-sm text-muted-foreground">
@@ -210,7 +211,7 @@ function QuestionCard({
                     <div className="flex-1">
                       <div className="flex items-center justify-between text-sm mb-1">
                         <span className={opt.isCorrect ? "font-medium text-emerald-600 dark:text-emerald-400" : ""}>
-                          {opt.text}
+                          <FormattedText text={opt.text} />
                         </span>
                         <span className="font-mono">{count} ({Math.round(pct)}%)</span>
                       </div>
