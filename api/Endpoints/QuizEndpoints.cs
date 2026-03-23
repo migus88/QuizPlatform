@@ -21,13 +21,13 @@ public static class QuizEndpoints
 
             var query = db.Quizzes.AsQueryable();
             if (!isAdmin)
-                query = query.Where(q => q.IsPublished);
+                query = query.Where(q => q.IsPublished || q.CreatedByUserId == userId);
 
             var quizzes = await query
                 .OrderByDescending(q => q.CreatedAt)
                 .Select(q => new QuizListResponse(
                     q.Id, q.Title, q.Description, q.IsPublished,
-                    q.Questions.Count, q.CreatedAt))
+                    q.Questions.Count, q.CreatedAt, q.CreatedByUserId == userId))
                 .ToListAsync();
 
             return Results.Ok(quizzes);
@@ -36,6 +36,7 @@ public static class QuizEndpoints
         // Get quiz by id
         group.MapGet("/{id:guid}", async (Guid id, ClaimsPrincipal principal, AppDbContext db) =>
         {
+            var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier)!;
             var isAdmin = principal.IsInRole("Admin");
 
             var quiz = await db.Quizzes
@@ -44,12 +45,13 @@ public static class QuizEndpoints
                 .FirstOrDefaultAsync(q => q.Id == id);
 
             if (quiz is null) return Results.NotFound();
-            if (!isAdmin && !quiz.IsPublished) return Results.NotFound();
+            if (!isAdmin && !quiz.IsPublished && quiz.CreatedByUserId != userId) return Results.NotFound();
 
+            var isOwnerOrAdmin = isAdmin || quiz.CreatedByUserId == userId;
             var questions = quiz.Questions.Select(q => new QuestionResponse(
                 q.Id, q.Text, q.TimeLimitSeconds, q.Points, q.DisableTimeScoring, q.Order,
                 q.AnswerOptions.Select(a => new AnswerOptionResponse(
-                    a.Id, a.Text, isAdmin ? a.IsCorrect : false, isAdmin ? a.PointsOverride : null, a.Order
+                    a.Id, a.Text, isOwnerOrAdmin ? a.IsCorrect : false, isOwnerOrAdmin ? a.PointsOverride : null, a.Order
                 )).ToList()
             )).ToList();
 
@@ -58,11 +60,9 @@ public static class QuizEndpoints
                 questions, quiz.CreatedAt, quiz.UpdatedAt));
         });
 
-        // Create quiz (admin only)
+        // Create quiz
         group.MapPost("/", async (CreateQuizRequest request, ClaimsPrincipal principal, AppDbContext db) =>
         {
-            if (!principal.IsInRole("Admin")) return Results.Forbid();
-
             var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier)!;
             var quiz = new Quiz
             {
@@ -80,13 +80,15 @@ public static class QuizEndpoints
                 [], quiz.CreatedAt, quiz.UpdatedAt));
         });
 
-        // Update quiz (admin only)
+        // Update quiz (owner or admin)
         group.MapPut("/{id:guid}", async (Guid id, UpdateQuizRequest request, ClaimsPrincipal principal, AppDbContext db) =>
         {
-            if (!principal.IsInRole("Admin")) return Results.Forbid();
+            var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            var isAdmin = principal.IsInRole("Admin");
 
             var quiz = await db.Quizzes.FindAsync(id);
             if (quiz is null) return Results.NotFound();
+            if (!isAdmin && quiz.CreatedByUserId != userId) return Results.Forbid();
 
             if (request.Title is not null) quiz.Title = request.Title;
             if (request.Description is not null) quiz.Description = request.Description;
@@ -100,26 +102,30 @@ public static class QuizEndpoints
                 [], quiz.CreatedAt, quiz.UpdatedAt));
         });
 
-        // Delete quiz (admin only)
+        // Delete quiz (owner or admin)
         group.MapDelete("/{id:guid}", async (Guid id, ClaimsPrincipal principal, AppDbContext db) =>
         {
-            if (!principal.IsInRole("Admin")) return Results.Forbid();
+            var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            var isAdmin = principal.IsInRole("Admin");
 
             var quiz = await db.Quizzes.FindAsync(id);
             if (quiz is null) return Results.NotFound();
+            if (!isAdmin && quiz.CreatedByUserId != userId) return Results.Forbid();
 
             db.Quizzes.Remove(quiz);
             await db.SaveChangesAsync();
             return Results.NoContent();
         });
 
-        // Add question to quiz (admin only)
+        // Add question to quiz (owner or admin)
         group.MapPost("/{id:guid}/questions", async (Guid id, CreateQuestionRequest request, ClaimsPrincipal principal, AppDbContext db) =>
         {
-            if (!principal.IsInRole("Admin")) return Results.Forbid();
+            var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            var isAdmin = principal.IsInRole("Admin");
 
             var quiz = await db.Quizzes.FindAsync(id);
             if (quiz is null) return Results.NotFound();
+            if (!isAdmin && quiz.CreatedByUserId != userId) return Results.Forbid();
 
             if (request.AnswerOptions.Count < 2 || request.AnswerOptions.Count > 6)
                 return Results.BadRequest("Between 2 and 6 answer options are required");
@@ -158,10 +164,15 @@ public static class QuizEndpoints
                 answerOptions.Select(a => new AnswerOptionResponse(a.Id, a.Text, a.IsCorrect, a.PointsOverride, a.Order)).ToList()));
         });
 
-        // Update question (admin only)
+        // Update question (owner or admin)
         group.MapPut("/{quizId:guid}/questions/{questionId:guid}", async (Guid quizId, Guid questionId, UpdateQuestionRequest request, ClaimsPrincipal principal, AppDbContext db) =>
         {
-            if (!principal.IsInRole("Admin")) return Results.Forbid();
+            var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            var isAdmin = principal.IsInRole("Admin");
+
+            var quiz = await db.Quizzes.FindAsync(quizId);
+            if (quiz is null) return Results.NotFound();
+            if (!isAdmin && quiz.CreatedByUserId != userId) return Results.Forbid();
 
             var question = await db.Questions
                 .Include(q => q.AnswerOptions)
@@ -198,10 +209,15 @@ public static class QuizEndpoints
                 newOptions.Select(a => new AnswerOptionResponse(a.Id, a.Text, a.IsCorrect, a.PointsOverride, a.Order)).ToList()));
         });
 
-        // Delete question (admin only)
+        // Delete question (owner or admin)
         group.MapDelete("/{quizId:guid}/questions/{questionId:guid}", async (Guid quizId, Guid questionId, ClaimsPrincipal principal, AppDbContext db) =>
         {
-            if (!principal.IsInRole("Admin")) return Results.Forbid();
+            var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            var isAdmin = principal.IsInRole("Admin");
+
+            var quiz = await db.Quizzes.FindAsync(quizId);
+            if (quiz is null) return Results.NotFound();
+            if (!isAdmin && quiz.CreatedByUserId != userId) return Results.Forbid();
 
             var question = await db.Questions.FirstOrDefaultAsync(q => q.Id == questionId && q.QuizId == quizId);
             if (question is null) return Results.NotFound();
@@ -218,10 +234,15 @@ public static class QuizEndpoints
             return Results.NoContent();
         });
 
-        // Reorder questions (admin only)
+        // Reorder questions (owner or admin)
         group.MapPut("/{id:guid}/questions/reorder", async (Guid id, List<Guid> questionIds, ClaimsPrincipal principal, AppDbContext db) =>
         {
-            if (!principal.IsInRole("Admin")) return Results.Forbid();
+            var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            var isAdmin = principal.IsInRole("Admin");
+
+            var quiz = await db.Quizzes.FindAsync(id);
+            if (quiz is null) return Results.NotFound();
+            if (!isAdmin && quiz.CreatedByUserId != userId) return Results.Forbid();
 
             var questions = await db.Questions.Where(q => q.QuizId == id).ToListAsync();
             for (int i = 0; i < questionIds.Count; i++)
