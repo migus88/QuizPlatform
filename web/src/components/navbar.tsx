@@ -15,9 +15,11 @@ export function Navbar() {
     ? [
         { href: "/users", label: "Users" },
         { href: "/quizzes", label: "Quizzes" },
+        { href: "/join", label: "Join" },
       ]
     : [
         { href: "/quizzes", label: "Quizzes" },
+        { href: "/join", label: "Join" },
         { href: "/profile", label: "Profile" },
       ];
 

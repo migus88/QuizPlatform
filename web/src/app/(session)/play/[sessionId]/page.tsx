@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { api } from "@/lib/api-client";
 import { useQuizHub, HubEvents } from "@/lib/signalr";
 import type { AnswerOptionResponse, LeaderboardEntry, ParticipantResponse } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -54,6 +55,7 @@ const optionColorsInteractive = [
 
 export default function PlayPage() {
   const params = useParams<{ sessionId: string }>();
+  const router = useRouter();
   const { startConnection } = useQuizHub();
   const connectionRef = useRef<Awaited<ReturnType<typeof startConnection>> | null>(null);
 
@@ -99,6 +101,44 @@ export default function PlayPage() {
       if (storedSession.emoji) setMyEmoji(storedSession.emoji);
       if (storedSession.color) setMyColor(storedSession.color);
     }
+
+    // Check if session is finished - show leaderboard or redirect
+    // Returns true if setupHub should proceed
+    const checkSession = async (): Promise<boolean> => {
+      if (!storedSession) {
+        router.replace("/join");
+        return false;
+      }
+      try {
+        const session = await api.sessions.getByCode(storedSession.joinCode);
+        if (session.status === "Finished") {
+          try {
+            const lb = await api.sessions.leaderboard(session.id);
+            if (lb.length > 0) {
+              setLeaderboard(lb);
+              const me = lb.find((e) => e.nickname === storedSession!.nickname);
+              if (me) {
+                setMyRank(me.rank);
+                setMyScore(me.score);
+              }
+              setPlayState("finished");
+              sessionStorage.removeItem("quizSession");
+              return false;
+            }
+          } catch {
+            // Leaderboard not available
+          }
+          sessionStorage.removeItem("quizSession");
+          router.replace("/join");
+          return false;
+        }
+        return true;
+      } catch {
+        sessionStorage.removeItem("quizSession");
+        router.replace("/join");
+        return false;
+      }
+    };
 
     const setupHub = async () => {
       try {
@@ -240,13 +280,18 @@ export default function PlayPage() {
     };
 
     // Defer to avoid React strict mode double-mount
-    const timer = setTimeout(setupHub, 0);
+    const timer = setTimeout(async () => {
+      const shouldConnect = await checkSession();
+      if (!cancelled && shouldConnect) {
+        await setupHub();
+      }
+    }, 0);
 
     return () => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [params.sessionId, startConnection]);
+  }, [params.sessionId, startConnection, router]);
 
   const handleAnswer = async (optionId: string) => {
     if (answered || !connectionRef.current || !currentQuestion) return;

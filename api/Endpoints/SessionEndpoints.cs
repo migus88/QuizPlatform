@@ -204,7 +204,7 @@ public static class SessionEndpoints
 
             var leaderboard = participants.Select((p, i) => new LeaderboardEntry(i + 1, p.Nickname, p.Score, p.Emoji, p.Color)).ToList();
             return Results.Ok(leaderboard);
-        }).RequireAuthorization();
+        });
 
         // Session analytics
         group.MapGet("/{id:guid}/analytics", async (Guid id, ClaimsPrincipal principal, AppDbContext db) =>
