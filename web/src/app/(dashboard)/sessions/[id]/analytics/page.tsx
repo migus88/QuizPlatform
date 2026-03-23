@@ -182,7 +182,7 @@ function QuestionCard({
         <button onClick={onToggle} className="w-full text-left">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <span className="text-sm font-mono text-muted-foreground">Q{question.order + 1}</span>
+              <span className="text-sm font-mono text-muted-foreground">Q{question.order}</span>
               <span className="font-medium"><FormattedText text={question.text} /></span>
             </div>
             <div className="flex items-center gap-3 shrink-0">
