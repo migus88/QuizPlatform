@@ -15,7 +15,7 @@ namespace QuizPlatform.Api.Migrations
                 table: "Quizzes",
                 type: "boolean",
                 nullable: false,
-                defaultValue: false);
+                defaultValue: true);
         }
 
         /// <inheritdoc />

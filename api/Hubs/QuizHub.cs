@@ -36,14 +36,21 @@ public class QuizHub : Hub
         _scopeFactory = scopeFactory;
     }
 
-    private static IEnumerable<AnswerOption> OrderOptions(IEnumerable<AnswerOption> options, bool randomize, Guid sessionId, Guid questionId)
+    private static List<AnswerOption> OrderOptions(IEnumerable<AnswerOption> options, bool randomize, Guid sessionId, Guid questionId)
     {
         if (!randomize)
-            return options.OrderBy(a => a.Order);
+            return options.OrderBy(a => a.Order).ToList();
 
-        var seed = sessionId.GetHashCode() ^ questionId.GetHashCode();
+        var list = options.ToList();
+        // Fisher-Yates shuffle with deterministic seed
+        var seed = HashCode.Combine(sessionId, questionId);
         var rng = new Random(seed);
-        return options.OrderBy(_ => rng.Next());
+        for (int i = list.Count - 1; i > 0; i--)
+        {
+            int j = rng.Next(i + 1);
+            (list[i], list[j]) = (list[j], list[i]);
+        }
+        return list;
     }
 
     public static void CleanupSession(Guid sessionId)
