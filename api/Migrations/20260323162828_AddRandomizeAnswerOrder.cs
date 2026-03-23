@@ -16,6 +16,9 @@ namespace QuizPlatform.Api.Migrations
                 type: "boolean",
                 nullable: false,
                 defaultValue: true);
+
+            // Set all existing quizzes to true
+            migrationBuilder.Sql("UPDATE \"Quizzes\" SET \"RandomizeAnswerOrder\" = true;");
         }
 
         /// <inheritdoc />

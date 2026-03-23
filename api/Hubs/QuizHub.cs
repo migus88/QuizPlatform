@@ -42,8 +42,9 @@ public class QuizHub : Hub
             return options.OrderBy(a => a.Order).ToList();
 
         var list = options.ToList();
-        // Fisher-Yates shuffle with deterministic seed
-        var seed = HashCode.Combine(sessionId, questionId);
+        // Fisher-Yates shuffle with a stable deterministic seed
+        // (Guid.GetHashCode is NOT randomized — it's based on the first 4 bytes)
+        var seed = sessionId.GetHashCode() * 397 ^ questionId.GetHashCode();
         var rng = new Random(seed);
         for (int i = list.Count - 1; i > 0; i--)
         {
