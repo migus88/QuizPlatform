@@ -1,3 +1,4 @@
+# Run from repo root: docker compose -f docker/docker-compose.prod.yml --env-file .env up -d --build
 services:
   api:
     build:

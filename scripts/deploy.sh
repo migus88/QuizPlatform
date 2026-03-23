@@ -176,7 +176,7 @@ cmd_deploy() {
     run_ssh "$ip" "cd ~/quizplatform && git pull origin main"
 
     info "Rebuilding and restarting Docker containers..."
-    run_ssh "$ip" "cd ~/quizplatform && docker compose -f docker/docker-compose.prod.yml up -d --build"
+    run_ssh "$ip" "cd ~/quizplatform && docker compose -f docker/docker-compose.prod.yml --env-file .env up -d --build"
 
     info "Waiting for services to start..."
     sleep 10

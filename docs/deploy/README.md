@@ -202,7 +202,7 @@ The `DEPLOY_DB_PASSWORD` value must appear in two places: on its own line and in
 ### 3.7 Start the stack
 
 ```bash
-docker compose -f docker/docker-compose.prod.yml up -d --build
+docker compose -f docker/docker-compose.prod.yml --env-file .env up -d --build
 ```
 
 First build takes a few minutes. Check the health endpoint:
