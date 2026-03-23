@@ -18,7 +18,14 @@ import { PlayerAvatar, RankBadge } from "@/components/player-avatar";
 import { FormattedText } from "@/components/formatted-text";
 import { AnimatedLeaderboard } from "@/components/animated-leaderboard";
 import { toast } from "sonner";
-import { Users, Play, Trophy, ArrowRight, ChevronRight, Check } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Users, Play, Trophy, ArrowRight, ChevronRight, Check, Square } from "lucide-react";
 
 type HostState = "lobby" | "questionIntro" | "question" | "revealing" | "reveal" | "leaderboard" | "finished";
 
@@ -73,6 +80,7 @@ export default function HostPage() {
   const [loading, setLoading] = useState(true);
   const [visibleOptions, setVisibleOptions] = useState(0);
   const [timerActive, setTimerActive] = useState(false);
+  const [showEndDialog, setShowEndDialog] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -261,6 +269,21 @@ export default function HostPage() {
 
   if (!session) return null;
 
+  const endSessionDialog = (
+    <Dialog open={showEndDialog} onOpenChange={setShowEndDialog}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>End Session</DialogTitle>
+          <DialogDescription>Are you sure you want to end this session? This will finish the quiz for all participants.</DialogDescription>
+        </DialogHeader>
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={() => setShowEndDialog(false)}>Cancel</Button>
+          <Button variant="destructive" onClick={() => { setShowEndDialog(false); handleEndSession(); }}>End Session</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+
   // LOBBY
   if (hostState === "lobby") {
     return (
@@ -297,14 +320,21 @@ export default function HostPage() {
           )}
         </div>
 
-        <Button
-          size="lg"
-          onClick={handleStartSession}
-          disabled={participants.length === 0}
-        >
-          <Play className="h-5 w-5 mr-2" />
-          Start Session
-        </Button>
+        <div className="flex items-center justify-center gap-3">
+          <Button
+            size="lg"
+            onClick={handleStartSession}
+            disabled={participants.length === 0}
+          >
+            <Play className="h-5 w-5 mr-2" />
+            Start Session
+          </Button>
+          <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setShowEndDialog(true)}>
+            <Square className="h-3 w-3 mr-1" />
+            End
+          </Button>
+        </div>
+        {endSessionDialog}
       </div>
     );
   }
@@ -316,9 +346,15 @@ export default function HostPage() {
     );
     return (
       <div className="max-w-4xl mx-auto">
-        <Badge variant="outline">
-          Question {currentQuestion.questionNumber} of {currentQuestion.totalQuestions}
-        </Badge>
+        <div className="flex items-center justify-between">
+          <Badge variant="outline">
+            Question {currentQuestion.questionNumber} of {currentQuestion.totalQuestions}
+          </Badge>
+          <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setShowEndDialog(true)}>
+            <Square className="h-3 w-3 mr-1" />
+            End
+          </Button>
+        </div>
 
         <Card className="my-6">
           <CardContent className="py-12">
@@ -342,6 +378,7 @@ export default function HostPage() {
             </div>
           ))}
         </div>
+        {endSessionDialog}
       </div>
     );
   }
@@ -358,6 +395,10 @@ export default function HostPage() {
             Question {currentQuestion.questionNumber} of {currentQuestion.totalQuestions}
           </Badge>
           <div className="flex items-center gap-4">
+            <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setShowEndDialog(true)}>
+              <Square className="h-3 w-3 mr-1" />
+              End
+            </Button>
             <span className="text-sm text-muted-foreground">
               {answerCount} / {participants.length} answered
             </span>
@@ -394,6 +435,7 @@ export default function HostPage() {
             </div>
           ))}
         </div>
+        {endSessionDialog}
       </div>
     );
   }
@@ -427,10 +469,16 @@ export default function HostPage() {
           <Badge variant="outline">
             Question {currentQuestion.questionNumber} of {currentQuestion.totalQuestions}
           </Badge>
-          <Button onClick={handleShowLeaderboard}>
-            <Trophy className="h-5 w-5 mr-2" />
-            Show Leaderboard
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setShowEndDialog(true)}>
+              <Square className="h-3 w-3 mr-1" />
+              End
+            </Button>
+            <Button onClick={handleShowLeaderboard}>
+              <Trophy className="h-5 w-5 mr-2" />
+              Show Leaderboard
+            </Button>
+          </div>
         </div>
 
         <Card className="mb-6">
@@ -472,6 +520,7 @@ export default function HostPage() {
             );
           })}
         </div>
+        {endSessionDialog}
       </div>
     );
   }
@@ -488,12 +537,13 @@ export default function HostPage() {
                 <ChevronRight className="h-5 w-5 ml-1" />
               </Button>
             )}
-          <Button variant="outline" onClick={handleEndSession}>
+          <Button variant="outline" onClick={() => setShowEndDialog(true)}>
             End Session
           </Button>
         </div>
 
         <AnimatedLeaderboard entries={leaderboard} />
+        {endSessionDialog}
       </div>
     );
   }
