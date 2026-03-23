@@ -147,24 +147,14 @@ export default function QuizzesPage() {
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       {activeSession ? (
-                        <>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => router.push(`/sessions/${activeSession.id}/host`)}
-                          >
-                            <Play className="h-4 w-4 mr-1" />
-                            Resume
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setStopSessionId(activeSession.id)}
-                          >
-                            <Square className="h-4 w-4 mr-1" />
-                            Stop
-                          </Button>
-                        </>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setStopSessionId(activeSession.id)}
+                        >
+                          <Square className="h-4 w-4 mr-1" />
+                          Stop
+                        </Button>
                       ) : (
                         <Button
                           variant="outline"

@@ -76,11 +76,7 @@ export default function SessionHistoryPage() {
                       </Link>
                     )}
                     {(session.status === "Lobby" || session.status === "Active") && (
-                      <Link href={`/sessions/${session.id}/host`}>
-                        <Button variant="outline" size="sm">
-                          Resume
-                        </Button>
-                      </Link>
+                      <Badge variant="outline" className="text-xs">In progress</Badge>
                     )}
                   </div>
                 </div>

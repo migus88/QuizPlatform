@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
@@ -12,6 +13,9 @@ namespace QuizPlatform.Api.Hubs;
 
 public class QuizHub : Hub
 {
+    // Track host connections: connectionId → sessionId
+    private static readonly ConcurrentDictionary<string, Guid> _hostConnections = new();
+
     private readonly AppDbContext _db;
     private readonly SessionTimerService _timerService;
     private readonly IHubContext<QuizHub> _hubContext;
@@ -157,6 +161,7 @@ public class QuizHub : Hub
         }
 
         await Groups.AddToGroupAsync(Context.ConnectionId, sessionId);
+        _hostConnections[Context.ConnectionId] = sessionGuid;
     }
 
     public async Task ChangeEmoji(string sessionId, string newEmoji)
@@ -407,6 +412,27 @@ public class QuizHub : Hub
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
+        // Check if the disconnecting client is a host
+        if (_hostConnections.TryRemove(Context.ConnectionId, out var hostedSessionId))
+        {
+            var session = await _db.Sessions
+                .Include(s => s.Participants)
+                .FirstOrDefaultAsync(s => s.Id == hostedSessionId);
+
+            if (session is not null && session.Status != SessionStatus.Finished)
+            {
+                session.Status = SessionStatus.Finished;
+                session.EndedAt = DateTime.UtcNow;
+                await _db.SaveChangesAsync();
+
+                _timerService.CancelTimer(hostedSessionId);
+
+                await Clients.Group(hostedSessionId.ToString())
+                    .SendAsync("SessionEnded");
+            }
+        }
+
+        // Handle participant disconnect
         var participant = await _db.Participants
             .Include(p => p.Session)
             .FirstOrDefaultAsync(p => p.ConnectionId == Context.ConnectionId);
