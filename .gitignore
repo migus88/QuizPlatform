@@ -6,6 +6,10 @@
 # dotenv files
 .env
 
+# Origin certificates
+docker/caddy/certs/
+docker/caddy/Caddyfile
+
 # Claude Code dev container (contains local SSH key)
 .claude-dev/authorized_keys
 
@@ -533,6 +537,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel

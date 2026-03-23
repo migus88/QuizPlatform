@@ -1,0 +1,59 @@
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: docker/api.Dockerfile
+    environment:
+      - ConnectionStrings__DefaultConnection=${DEPLOY_DB_CONNECTION}
+      - Jwt__Key=${DEPLOY_JWT_KEY}
+      - Jwt__Issuer=QuizPlatform
+      - Jwt__Audience=QuizPlatform
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ..
+      dockerfile: docker/web.Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy/certs:/etc/caddy/certs:ro
+      - caddy_data:/data
+    depends_on:
+      - api
+      - web
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: ${DEPLOY_DB_USER:-quizplatform}
+      POSTGRES_PASSWORD: ${DEPLOY_DB_PASSWORD}
+      POSTGRES_DB: ${DEPLOY_DB_NAME:-quizplatform}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DEPLOY_DB_USER:-quizplatform}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  caddy_data:
