@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 
 export default function NewQuizPage() {
   const [title, setTitle] = useState("");
@@ -35,7 +37,10 @@ export default function NewQuizPage() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div>
+      <Link href="/quizzes" className="text-sm text-muted-foreground hover:text-foreground mb-4 inline-flex items-center gap-1">
+        <ArrowLeft className="w-4 h-4" /> Back to Quizzes
+      </Link>
       <h1 className="text-3xl font-bold mb-6">Create New Quiz</h1>
       <Card>
         <CardHeader>

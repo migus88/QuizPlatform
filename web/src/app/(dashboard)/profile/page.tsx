@@ -10,6 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState<UserResponse | null>(null);
@@ -91,7 +93,10 @@ export default function ProfilePage() {
   if (!profile) return null;
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div>
+      <Link href="/quizzes" className="text-sm text-muted-foreground hover:text-foreground mb-4 inline-flex items-center gap-1">
+        <ArrowLeft className="w-4 h-4" /> Back
+      </Link>
       <h1 className="text-3xl font-bold mb-6">Profile</h1>
 
       <Card className="mb-6">

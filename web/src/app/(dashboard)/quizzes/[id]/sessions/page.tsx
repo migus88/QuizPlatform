@@ -81,7 +81,7 @@ export default function SessionHistoryPage() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div>
       <Link href="/quizzes" className="text-sm text-muted-foreground hover:text-foreground mb-4 inline-flex items-center gap-1">
         <ArrowLeft className="w-4 h-4" /> Back to Quizzes
       </Link>
@@ -116,10 +116,10 @@ export default function SessionHistoryPage() {
         <p className="text-center text-muted-foreground py-12">No sessions yet.</p>
       ) : (
         <>
-          <div className="space-y-3">
+          <div className="space-y-2">
             {sessions.map((session) => (
               <Card key={session.id} className={editMode && selected.has(session.id) ? "ring-2 ring-primary" : ""}>
-                <CardContent className="py-4">
+                <CardContent className="py-2">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       {editMode && (

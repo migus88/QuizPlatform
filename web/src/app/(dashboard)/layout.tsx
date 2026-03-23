@@ -33,7 +33,7 @@ export default function DashboardLayout({
       <div className="min-h-screen">
         <Sidebar />
         <div className="md:pl-60">
-          <main className="container mx-auto px-4 py-8">{children}</main>
+          <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
         </div>
       </div>
     </AuthGuard>

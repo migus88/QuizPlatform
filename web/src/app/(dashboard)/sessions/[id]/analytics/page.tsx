@@ -97,7 +97,7 @@ export default function AnalyticsPage() {
   if (!analytics) return null;
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div>
       <div className="flex items-center justify-between mb-6">
         <div>
           <Link href="/quizzes" className="text-sm text-muted-foreground hover:text-foreground mb-2 inline-flex items-center gap-1">

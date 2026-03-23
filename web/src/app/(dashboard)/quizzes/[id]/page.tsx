@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { api } from "@/lib/api-client";
 import type {
   QuizDetailResponse,
@@ -24,7 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { FormattedText } from "@/components/formatted-text";
-import { Plus, Pencil, Trash2, Check, Clock, Trophy, X, Upload, Download } from "lucide-react";
+import { Plus, Pencil, Trash2, Check, Clock, Trophy, X, Upload, Download, ArrowLeft } from "lucide-react";
 
 interface OptionFormState {
   text: string;
@@ -372,7 +373,10 @@ export default function QuizEditorPage() {
   const sortedQuestions = [...quiz.questions].sort((a, b) => a.order - b.order);
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div>
+      <Link href="/quizzes" className="text-sm text-muted-foreground hover:text-foreground mb-4 inline-flex items-center gap-1">
+        <ArrowLeft className="w-4 h-4" /> Back to Quizzes
+      </Link>
       {/* Quiz Metadata */}
       <Card className="mb-6">
         <CardHeader>
