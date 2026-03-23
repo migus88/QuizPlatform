@@ -413,9 +413,13 @@ export default function PlayPage() {
 
     return (
       <div className="w-full max-w-lg">
-        <p className="text-center text-sm text-muted-foreground mb-4">
+        <p className="text-center text-sm text-muted-foreground mb-2">
           Question {currentQuestion.questionNumber} of {currentQuestion.totalQuestions}
         </p>
+
+        {/* Reserve timer space to prevent layout jump */}
+        <p className="text-center text-3xl font-bold font-mono mb-2 invisible" aria-hidden="true">&nbsp;</p>
+        <div className="w-full h-2 mb-4" />
 
         <Card className="mb-6">
           <CardContent className="py-8">
@@ -615,24 +619,40 @@ export default function PlayPage() {
   // FINISHED
   if (playState === "finished") {
     return (
-      <div className="w-full max-w-md text-center">
-        <Card>
-          <CardContent className="py-12">
-            <Trophy className="w-16 h-16 mx-auto text-amber-500 mb-4" />
-            <h2 className="text-3xl font-bold mb-2">Quiz Complete!</h2>
-            {myRank !== null && (
-              <div className="mt-4 space-y-1">
-                <p className="text-xl">
-                  You finished <span className="font-bold">#{myRank}</span>
-                </p>
-                <p className="text-2xl font-bold">{myScore} points</p>
-              </div>
-            )}
-            <Link href="/join" className="inline-block mt-8">
-              <Button size="lg">Join Another Quiz</Button>
-            </Link>
-          </CardContent>
-        </Card>
+      <div className="w-full max-w-md">
+        {myRank !== null && (
+          <div className="text-center mb-6">
+            <Trophy className="w-12 h-12 mx-auto text-amber-500 mb-2" />
+            <p className="text-xl">
+              You finished <span className="font-bold">#{myRank}</span> with <span className="font-bold">{myScore}</span> points
+            </p>
+          </div>
+        )}
+
+        {leaderboard.length > 0 && (
+          <div className="space-y-2 mb-6">
+            {leaderboard.map((entry) => (
+              <Card key={entry.nickname} className={entry.nickname === nickname ? "ring-2 ring-primary" : ""}>
+                <CardContent className="py-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-bold w-6 text-center text-muted-foreground">#{entry.rank}</span>
+                      <PlayerAvatar emoji={entry.emoji} size="sm" />
+                      <span className="font-medium">{entry.nickname}</span>
+                    </div>
+                    <span className="font-mono font-bold">{entry.score}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        <div className="text-center">
+          <Link href="/join">
+            <Button size="lg">Join Another Quiz</Button>
+          </Link>
+        </div>
       </div>
     );
   }
