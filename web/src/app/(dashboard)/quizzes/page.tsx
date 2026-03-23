@@ -23,14 +23,13 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Play, Square, History } from "lucide-react";
+import { Plus, Pencil, Trash2, Play, History } from "lucide-react";
 
 export default function QuizzesPage() {
   const [quizzes, setQuizzes] = useState<QuizListResponse[]>([]);
   const [activeSessions, setActiveSessions] = useState<Record<string, SessionResponse>>({});
   const [loading, setLoading] = useState(true);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [stopSessionId, setStopSessionId] = useState<string | null>(null);
   const router = useRouter();
 
   const loadQuizzes = async () => {
@@ -74,18 +73,6 @@ export default function QuizzesPage() {
       router.push(`/sessions/${session.id}/host`);
     } catch {
       toast.error("Failed to create session");
-    }
-  };
-
-  const handleStopSession = async () => {
-    if (!stopSessionId) return;
-    try {
-      await api.sessions.finish(stopSessionId);
-      toast.success("Session stopped");
-      setStopSessionId(null);
-      loadQuizzes();
-    } catch {
-      toast.error("Failed to stop session");
     }
   };
 
@@ -146,26 +133,15 @@ export default function QuizzesPage() {
                   <TableCell>{new Date(quiz.createdAt).toLocaleDateString()}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      {activeSession ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setStopSessionId(activeSession.id)}
-                        >
-                          <Square className="h-4 w-4 mr-1" />
-                          Stop
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleHostSession(quiz.id)}
-                          disabled={!quiz.isPublished || quiz.questionCount === 0}
-                        >
-                          <Play className="h-4 w-4 mr-1" />
-                          Host
-                        </Button>
-                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleHostSession(quiz.id)}
+                        disabled={!quiz.isPublished || quiz.questionCount === 0}
+                      >
+                        <Play className="h-4 w-4 mr-1" />
+                        Host
+                      </Button>
                       <Link href={`/quizzes/${quiz.id}/sessions`}>
                         <Button variant="ghost" size="icon" title="Session History">
                           <History className="h-4 w-4" />
@@ -202,19 +178,6 @@ export default function QuizzesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Stop Session Confirmation Dialog */}
-      <Dialog open={stopSessionId !== null} onOpenChange={(open) => { if (!open) setStopSessionId(null); }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Stop Session</DialogTitle>
-            <DialogDescription>Are you sure you want to stop this session? All participants will be disconnected.</DialogDescription>
-          </DialogHeader>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setStopSessionId(null)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleStopSession}>Stop Session</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
