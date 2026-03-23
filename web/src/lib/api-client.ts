@@ -1,5 +1,6 @@
 import type {
   AuthResponse,
+  ChangePasswordRequest,
   CreateQuestionRequest,
   CreateQuizRequest,
   CreateSessionRequest,
@@ -104,6 +105,7 @@ class ApiClient {
   profile = {
     get: () => this.request<UserResponse>("GET", "/api/profile"),
     update: (data: UpdateProfileRequest) => this.request<UserResponse>("PUT", "/api/profile", data),
+    changePassword: (data: ChangePasswordRequest) => this.request<void>("PUT", "/api/profile/password", data),
   };
 }
 

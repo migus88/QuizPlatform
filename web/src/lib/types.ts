@@ -42,6 +42,11 @@ export interface UpdateProfileRequest {
   lastName: string;
 }
 
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+}
+
 // Quizzes
 export interface QuizListResponse {
   id: string;
@@ -50,6 +55,7 @@ export interface QuizListResponse {
   isPublished: boolean;
   questionCount: number;
   createdAt: string;
+  isOwner: boolean;
 }
 
 export interface QuizDetailResponse {

@@ -34,5 +34,21 @@ public static class ProfileEndpoints
             var roles = await userManager.GetRolesAsync(user);
             return Results.Ok(new UserResponse(user.Id, user.Email!, user.FirstName, user.LastName, roles.FirstOrDefault() ?? "User", user.CreatedAt));
         });
+
+        group.MapPut("/password", async (ChangePasswordRequest request, ClaimsPrincipal principal, UserManager<User> userManager) =>
+        {
+            var userId = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+            var user = await userManager.FindByIdAsync(userId!);
+            if (user is null) return Results.NotFound();
+
+            var result = await userManager.ChangePasswordAsync(user, request.CurrentPassword, request.NewPassword);
+            if (!result.Succeeded)
+            {
+                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                return Results.BadRequest(errors);
+            }
+
+            return Results.Ok();
+        });
     }
 }

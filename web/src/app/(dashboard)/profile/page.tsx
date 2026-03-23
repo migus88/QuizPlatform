@@ -18,6 +18,11 @@ export default function ProfilePage() {
   const [lastName, setLastName] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
+
   const loadProfile = async () => {
     try {
       const data = await api.profile.get();
@@ -49,6 +54,33 @@ export default function ProfilePage() {
       toast.error("Failed to update profile");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      toast.error("New passwords do not match");
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast.error("New password must be at least 6 characters");
+      return;
+    }
+    setChangingPassword(true);
+    try {
+      await api.profile.changePassword({
+        currentPassword,
+        newPassword,
+      });
+      toast.success("Password changed successfully");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to change password");
+    } finally {
+      setChangingPassword(false);
     }
   };
 
@@ -89,7 +121,7 @@ export default function ProfilePage() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="mb-6">
         <CardHeader>
           <CardTitle>Edit Profile</CardTitle>
         </CardHeader>
@@ -116,6 +148,51 @@ export default function ProfilePage() {
             <div className="flex justify-end">
               <Button type="submit" disabled={saving}>
                 {saving ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Change Password</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleChangePassword} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="currentPassword">Current Password</Label>
+              <Input
+                id="currentPassword"
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="newPassword">New Password</Label>
+              <Input
+                id="newPassword"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirm New Password</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+              />
+            </div>
+            <div className="flex justify-end">
+              <Button type="submit" disabled={changingPassword}>
+                {changingPassword ? "Changing..." : "Change Password"}
               </Button>
             </div>
           </form>
