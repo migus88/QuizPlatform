@@ -427,9 +427,7 @@ export default function PlayPage() {
 
   // QUESTION INTRO - show question text, then reveal answers one by one
   if (playState === "questionIntro" && currentQuestion) {
-    const sortedOptions = [...currentQuestion.options].sort(
-      (a, b) => a.order - b.order
-    );
+    const sortedOptions = currentQuestion.options;
 
     return (
       <div className="w-full max-w-lg">
@@ -467,9 +465,7 @@ export default function PlayPage() {
 
   // QUESTION - answering phase
   if ((playState === "question") && currentQuestion) {
-    const sortedOptions = [...currentQuestion.options].sort(
-      (a, b) => a.order - b.order
-    );
+    const sortedOptions = currentQuestion.options;
 
     if (answered) {
       return (
@@ -565,9 +561,7 @@ export default function PlayPage() {
 
   // RESULT - combined answer reveal + personal result
   if (playState === "result" && currentQuestion && revealData) {
-    const sortedOptions = [...currentQuestion.options].sort(
-      (a, b) => a.order - b.order
-    );
+    const sortedOptions = currentQuestion.options;
 
     return (
       <div className="w-full max-w-lg animate-in fade-in slide-in-from-bottom duration-500">

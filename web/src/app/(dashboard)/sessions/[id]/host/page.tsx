@@ -368,9 +368,7 @@ export default function HostPage() {
 
   // QUESTION INTRO - show question text, then reveal answers one by one
   if (hostState === "questionIntro" && currentQuestion) {
-    const sortedOptions = [...currentQuestion.options].sort(
-      (a, b) => a.order - b.order
-    );
+    const sortedOptions = currentQuestion.options;
     return (
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between">
@@ -412,9 +410,7 @@ export default function HostPage() {
 
   // QUESTION DISPLAY - answering phase with timer
   if (hostState === "question" && currentQuestion) {
-    const sortedOptions = [...currentQuestion.options].sort(
-      (a, b) => a.order - b.order
-    );
+    const sortedOptions = currentQuestion.options;
     return (
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-4">
@@ -485,9 +481,7 @@ export default function HostPage() {
 
   // ANSWER REVEAL
   if (hostState === "reveal" && currentQuestion && revealData) {
-    const sortedOptions = [...currentQuestion.options].sort(
-      (a, b) => a.order - b.order
-    );
+    const sortedOptions = currentQuestion.options;
     const maxVotes = Math.max(1, ...revealData.options.map((o) => o.count));
 
     return (
