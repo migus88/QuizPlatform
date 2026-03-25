@@ -579,10 +579,11 @@ public class QuizHub : Hub
             .ToListAsync();
 
         // Get awarded points for current question per participant
+        var participantIds = participants.Select(p => p.Id).ToList();
         var diffs = currentQuestionId.HasValue
             ? await _db.ParticipantAnswers
                 .Where(a => a.QuestionId == currentQuestionId.Value &&
-                    participants.Select(p => p.Id).Contains(a.ParticipantId))
+                    participantIds.Contains(a.ParticipantId))
                 .ToDictionaryAsync(a => a.ParticipantId, a => a.AwardedPoints)
             : new Dictionary<Guid, int>();
 
@@ -654,7 +655,10 @@ public class QuizHub : Hub
                 id = a.Id,
                 text = a.Text,
                 isCorrect = a.IsCorrect,
-                count = answers.Count(ans => ans.SelectedAnswerOptionId == a.Id)
+                count = answers.Count(ans => ans.SelectedAnswerOptionId == a.Id),
+                points = a.IsCorrect
+                    ? a.PointsOverride ?? question.Points
+                    : a.PointsOverride
             })
         };
 
@@ -693,7 +697,10 @@ public class QuizHub : Hub
                 id = a.Id,
                 text = a.Text,
                 isCorrect = a.IsCorrect,
-                count = answers.Count(ans => ans.SelectedAnswerOptionId == a.Id)
+                count = answers.Count(ans => ans.SelectedAnswerOptionId == a.Id),
+                points = a.IsCorrect
+                    ? a.PointsOverride ?? question.Points
+                    : a.PointsOverride
             })
         };
 

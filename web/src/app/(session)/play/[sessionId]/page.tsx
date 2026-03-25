@@ -34,7 +34,7 @@ interface AnswerResult {
 
 interface RevealData {
   correctOptionIds: string[];
-  options: { id: string; text: string; isCorrect: boolean; count: number }[];
+  options: { id: string; text: string; isCorrect: boolean; count: number; points?: number | null }[];
 }
 
 const optionColorsBg = [
@@ -370,18 +370,24 @@ export default function PlayPage() {
     </Dialog>
   );
 
-  const quitButton = (
-    <button
-      onClick={() => setShowQuitDialog(true)}
-      className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-    >
-      Quit quiz
-    </button>
+  const quitOverlay = playState !== "finished" && (
+    <>
+      <button
+        onClick={() => setShowQuitDialog(true)}
+        className="fixed top-3 right-4 z-50 text-sm text-muted-foreground hover:text-foreground transition-colors"
+      >
+        Quit
+      </button>
+      {quitDialog}
+    </>
   );
+
+  // Render content based on play state
+  let content: React.ReactNode = null;
 
   // WAITING
   if (playState === "waiting") {
-    return (
+    content = (
       <div className="w-full max-w-md text-center">
         <Card>
           <CardContent className="py-8">
@@ -441,17 +447,15 @@ export default function PlayPage() {
             {!connected && (
               <p className="text-sm text-amber-500 mt-2">Connecting...</p>
             )}
-            <div className="mt-4">{quitButton}</div>
           </CardContent>
         </Card>
-        {quitDialog}
       </div>
     );
   }
 
   // COUNTDOWN
-  if (playState === "countdown") {
-    return (
+  else if (playState === "countdown") {
+    content = (
       <div className="w-full max-w-md text-center">
         <div className="animate-in fade-in zoom-in duration-300">
           <p className="text-2xl font-medium text-muted-foreground mb-4">Get ready!</p>
@@ -462,10 +466,10 @@ export default function PlayPage() {
   }
 
   // QUESTION INTRO - show question text, then reveal answers one by one
-  if (playState === "questionIntro" && currentQuestion) {
+  else if (playState === "questionIntro" && currentQuestion) {
     const sortedOptions = currentQuestion.options;
 
-    return (
+    content = (
       <div className="w-full max-w-lg">
         {/* Timer placeholder at top — keeps layout stable across phases */}
         <div className="h-[44px] mb-2 flex items-center justify-center">
@@ -500,11 +504,11 @@ export default function PlayPage() {
   }
 
   // QUESTION - answering phase
-  if ((playState === "question") && currentQuestion) {
+  else if ((playState === "question") && currentQuestion) {
     const sortedOptions = currentQuestion.options;
 
     if (answered) {
-      return (
+      content = (
         <div className="w-full max-w-lg">
           {/* Timer at top */}
           <div className="h-[44px] mb-2 flex items-center justify-center">
@@ -535,53 +539,53 @@ export default function PlayPage() {
           </p>
         </div>
       );
+    } else {
+      content = (
+        <div className="w-full max-w-lg">
+          {/* Timer at top */}
+          <div className="h-[44px] mb-2 flex items-center justify-center">
+            <span className="text-3xl font-bold font-mono">{timer}</span>
+          </div>
+          <div className="w-full bg-muted rounded-full h-2 mb-4 overflow-hidden">
+            <div
+              className="h-2 rounded-full bg-primary"
+              style={{
+                width: "100%",
+                transform: `scaleX(${maxTime > 0 ? timer / maxTime : 0})`,
+                transformOrigin: "left",
+                transition: "transform 1s linear",
+              }}
+            />
+          </div>
+
+          <p className="text-center text-xl font-semibold mb-4">
+            <FormattedText text={currentQuestion.text} />
+          </p>
+
+          <div className="grid grid-cols-2 gap-3">
+            {sortedOptions.map((option, index) => (
+              <button
+                key={option.id}
+                onClick={() => handleAnswer(option.id)}
+                className={`${optionColorsInteractive[index % 6]} text-white rounded-xl p-4 min-h-[80px] text-lg font-medium text-left transition-transform active:scale-95 disabled:opacity-50${sortedOptions.length % 2 === 1 && index === sortedOptions.length - 1 ? " col-span-2 justify-self-center w-[calc(50%-0.375rem)]" : ""}`}
+                disabled={answered}
+              >
+                <FormattedText text={option.text} />
+              </button>
+            ))}
+          </div>
+
+          <p className="text-center text-sm text-muted-foreground mt-6">
+            Question {currentQuestion.questionNumber} of {currentQuestion.totalQuestions}
+          </p>
+        </div>
+      );
     }
-
-    return (
-      <div className="w-full max-w-lg">
-        {/* Timer at top */}
-        <div className="h-[44px] mb-2 flex items-center justify-center">
-          <span className="text-3xl font-bold font-mono">{timer}</span>
-        </div>
-        <div className="w-full bg-muted rounded-full h-2 mb-4 overflow-hidden">
-          <div
-            className="h-2 rounded-full bg-primary"
-            style={{
-              width: "100%",
-              transform: `scaleX(${maxTime > 0 ? timer / maxTime : 0})`,
-              transformOrigin: "left",
-              transition: "transform 1s linear",
-            }}
-          />
-        </div>
-
-        <p className="text-center text-xl font-semibold mb-4">
-          <FormattedText text={currentQuestion.text} />
-        </p>
-
-        <div className="grid grid-cols-2 gap-3">
-          {sortedOptions.map((option, index) => (
-            <button
-              key={option.id}
-              onClick={() => handleAnswer(option.id)}
-              className={`${optionColorsInteractive[index % 6]} text-white rounded-xl p-4 min-h-[80px] text-lg font-medium text-left transition-transform active:scale-95 disabled:opacity-50${sortedOptions.length % 2 === 1 && index === sortedOptions.length - 1 ? " col-span-2 justify-self-center w-[calc(50%-0.375rem)]" : ""}`}
-              disabled={answered}
-            >
-              <FormattedText text={option.text} />
-            </button>
-          ))}
-        </div>
-
-        <p className="text-center text-sm text-muted-foreground mt-6">
-          Question {currentQuestion.questionNumber} of {currentQuestion.totalQuestions}
-        </p>
-      </div>
-    );
   }
 
   // REVEALING - transition screen
-  if (playState === "revealing") {
-    return (
+  else if (playState === "revealing") {
+    content = (
       <div className="w-full max-w-md text-center">
         <div className="animate-in fade-in zoom-in duration-700">
           <p className="text-5xl font-bold mb-4">
@@ -596,10 +600,10 @@ export default function PlayPage() {
   }
 
   // RESULT - combined answer reveal + personal result
-  if (playState === "result" && currentQuestion && revealData) {
+  else if (playState === "result" && currentQuestion && revealData) {
     const sortedOptions = currentQuestion.options;
 
-    return (
+    content = (
       <div className="w-full max-w-lg animate-in fade-in slide-in-from-bottom duration-500">
         {/* Result banner */}
         <div className="text-center mb-6 animate-in zoom-in duration-300">
@@ -637,6 +641,7 @@ export default function PlayPage() {
             const isCorrect = revealOption?.isCorrect ?? false;
             const isMyChoice = option.id === selectedOptionId;
             const count = revealOption?.count ?? 0;
+            const points = revealOption?.points;
 
             return (
               <div
@@ -651,7 +656,12 @@ export default function PlayPage() {
               >
                 <div className="flex items-center justify-between w-full">
                   <span className="text-lg font-medium"><FormattedText text={option.text} /></span>
-                  <span className="text-sm font-mono opacity-80">{count}</span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {points != null && (
+                      <span className="text-xs font-mono opacity-70">{points > 0 ? "+" : ""}{points}pts</span>
+                    )}
+                    <span className="text-sm font-mono opacity-80">{count}</span>
+                  </div>
                 </div>
               </div>
             );
@@ -661,16 +671,13 @@ export default function PlayPage() {
         <p className={`text-center text-sm ${(answerResult?.newScore ?? myScore) < 0 ? "text-red-500 font-medium" : "text-muted-foreground"}`}>
           Total: {answerResult?.newScore ?? myScore} points
         </p>
-        <div className="text-center mt-4">{quitButton}</div>
-        {quitDialog}
       </div>
     );
   }
 
   // LEADERBOARD
-  if (playState === "leaderboard") {
-    return (
-      <>
+  else if (playState === "leaderboard") {
+    content = (
       <AnimatedLeaderboard
         entries={leaderboard}
         nickname={nickname}
@@ -678,14 +685,11 @@ export default function PlayPage() {
         myScore={myScore}
         myDiff={leaderboard.find((e) => e.nickname === nickname)?.diff}
       />
-      <div className="text-center mt-4">{quitButton}</div>
-      {quitDialog}
-      </>
     );
   }
 
   // FINISHED
-  if (playState === "finished") {
+  else if (playState === "finished") {
     return (
       <div className="w-full max-w-md">
         {myRank !== null && (
@@ -725,5 +729,10 @@ export default function PlayPage() {
     );
   }
 
-  return <>{quitDialog}</>;
+  return (
+    <>
+      {quitOverlay}
+      {content}
+    </>
+  );
 }

@@ -40,7 +40,7 @@ interface QuestionData {
 
 interface RevealData {
   correctOptionIds: string[];
-  options: { id: string; text: string; isCorrect: boolean; count: number }[];
+  options: { id: string; text: string; isCorrect: boolean; count: number; points?: number | null }[];
 }
 
 const optionColors = [
@@ -513,6 +513,7 @@ export default function HostPage() {
             const revealOption = revealData.options.find((o) => o.id === option.id);
             const isCorrect = revealOption?.isCorrect ?? false;
             const votes = revealOption?.count ?? 0;
+            const points = revealOption?.points;
             return (
               <div
                 key={option.id}
@@ -529,7 +530,14 @@ export default function HostPage() {
                       <FormattedText text={option.text} />
                     </span>
                   </div>
-                  <span className="text-sm font-mono">{votes}</span>
+                  <div className="flex items-center gap-2">
+                    {points != null && (
+                      <span className={`text-xs font-mono ${points < 0 ? "text-red-500" : "text-muted-foreground"}`}>
+                        {points > 0 ? "+" : ""}{points}pts
+                      </span>
+                    )}
+                    <span className="text-sm font-mono">{votes}</span>
+                  </div>
                 </div>
                 <div className="w-full bg-muted rounded-full h-2">
                   <div
