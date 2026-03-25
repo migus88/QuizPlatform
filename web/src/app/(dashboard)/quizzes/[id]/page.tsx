@@ -736,11 +736,11 @@ export default function QuizEditorPage() {
                   {(option.isCorrect || questionForm.disableTimeScoring) && (
                     <Input
                       type="number"
-                      min={questionForm.disableTimeScoring && !option.isCorrect ? -1000 : 1}
+                      min={questionForm.disableTimeScoring ? -1000 : 1}
                       max={1000}
                       value={option.pointsOverride ?? ""}
                       onChange={(e) => updateOptionPoints(index, e.target.value)}
-                      placeholder={questionForm.disableTimeScoring && !option.isCorrect ? "−pts" : "pts"}
+                      placeholder="pts"
                       className="w-20"
                     />
                   )}

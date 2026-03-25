@@ -570,8 +570,8 @@ export default function PlayPage() {
           {answerResult?.isCorrect ? (
             <div className="flex items-center justify-center gap-3">
               <Check className="w-10 h-10 text-emerald-500" />
-              <h2 className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-                Correct! +{answerResult.awardedPoints}pts
+              <h2 className={`text-2xl font-bold ${answerResult.awardedPoints < 0 ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"}`}>
+                Correct! {answerResult.awardedPoints < 0 ? "" : "+"}{answerResult.awardedPoints}pts
               </h2>
             </div>
           ) : (
