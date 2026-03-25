@@ -169,6 +169,7 @@ export interface LeaderboardEntry {
   score: number;
   emoji: string;
   color: string;
+  diff?: number | null;
 }
 
 export interface SubmitAnswerRequest {

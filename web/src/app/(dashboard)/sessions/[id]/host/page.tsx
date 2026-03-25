@@ -549,7 +549,7 @@ export default function HostPage() {
   // LEADERBOARD
   if (hostState === "leaderboard") {
     return (
-      <div>
+      <div className="max-w-4xl mx-auto">
         <div className="flex justify-end gap-3 mb-4">
           {currentQuestion &&
             currentQuestion.questionNumber < currentQuestion.totalQuestions && (

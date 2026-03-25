@@ -62,6 +62,13 @@ public class QuizHub : Hub
 
     public async Task JoinSession(string joinCode, string nickname)
     {
+        nickname = nickname.Trim();
+        if (nickname.Length == 0 || nickname.Length > 20)
+        {
+            await Clients.Caller.SendAsync("Error", "Nickname must be between 1 and 20 characters");
+            return;
+        }
+
         var session = await _db.Sessions
             .Include(s => s.Quiz)
             .Include(s => s.Participants)
@@ -556,13 +563,32 @@ public class QuizHub : Hub
     {
         var sessionGuid = Guid.Parse(sessionId);
 
+        var session = await _db.Sessions.FirstOrDefaultAsync(s => s.Id == sessionGuid);
+        var currentQuestionId = session is not null
+            ? await _db.Quizzes
+                .Where(q => q.Id == session.QuizId)
+                .SelectMany(q => q.Questions.OrderBy(qu => qu.Order))
+                .Skip(session.CurrentQuestionIndex)
+                .Select(q => (Guid?)q.Id)
+                .FirstOrDefaultAsync()
+            : null;
+
         var participants = await _db.Participants
             .Where(p => p.SessionId == sessionGuid)
             .OrderByDescending(p => p.Score)
             .ToListAsync();
 
+        // Get awarded points for current question per participant
+        var diffs = currentQuestionId.HasValue
+            ? await _db.ParticipantAnswers
+                .Where(a => a.QuestionId == currentQuestionId.Value &&
+                    participants.Select(p => p.Id).Contains(a.ParticipantId))
+                .ToDictionaryAsync(a => a.ParticipantId, a => a.AwardedPoints)
+            : new Dictionary<Guid, int>();
+
         var leaderboard = participants.Select((p, i) =>
-            new LeaderboardEntry(i + 1, p.Nickname, p.Score, p.Emoji, p.Color)).ToList();
+            new LeaderboardEntry(i + 1, p.Nickname, p.Score, p.Emoji, p.Color,
+                diffs.TryGetValue(p.Id, out var d) ? d : null)).ToList();
 
         _sessionPhase[sessionGuid] = "leaderboard";
         await Clients.Group(sessionId).SendAsync("LeaderboardUpdated", leaderboard);

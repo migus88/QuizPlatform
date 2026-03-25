@@ -7,9 +7,16 @@ interface LeaderboardProps {
   nickname?: string;
   myRank?: number | null;
   myScore?: number;
+  myDiff?: number | null;
 }
 
-export function AnimatedLeaderboard({ entries, nickname, myRank, myScore }: LeaderboardProps) {
+function DiffBadge({ diff }: { diff: number }) {
+  const color = diff > 0 ? "text-emerald-500" : diff < 0 ? "text-red-500" : "text-muted-foreground";
+  const sign = diff > 0 ? "+" : "";
+  return <span className={`text-sm font-mono ${color}`}>{sign}{diff}</span>;
+}
+
+export function AnimatedLeaderboard({ entries, nickname, myRank, myScore, myDiff }: LeaderboardProps) {
   const top10 = entries.slice(0, 10);
 
   return (
@@ -18,6 +25,7 @@ export function AnimatedLeaderboard({ entries, nickname, myRank, myScore }: Lead
       {nickname && myRank != null && (
         <p className="text-muted-foreground mb-6 animate-in fade-in duration-700">
           Your rank: <span className="font-bold">#{myRank}</span> - <span className={myScore != null && myScore < 0 ? "text-red-500" : ""}>{myScore} pts</span>
+          {myDiff != null && <> (<DiffBadge diff={myDiff} />)</>}
         </p>
       )}
       <div className="space-y-2">
@@ -38,7 +46,10 @@ export function AnimatedLeaderboard({ entries, nickname, myRank, myScore }: Lead
                       {entry.nickname}
                     </span>
                   </div>
-                  <span className={`font-mono font-bold text-lg ${entry.score < 0 ? "text-red-500" : ""}`}>{entry.score}</span>
+                  <div className="flex items-center gap-2">
+                    {entry.diff != null && <DiffBadge diff={entry.diff} />}
+                    <span className={`font-mono font-bold text-lg ${entry.score < 0 ? "text-red-500" : ""}`}>{entry.score}</span>
+                  </div>
                 </div>
               </CardContent>
             </Card>

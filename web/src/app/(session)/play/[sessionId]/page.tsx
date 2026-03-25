@@ -605,15 +605,15 @@ export default function PlayPage() {
             return (
               <div
                 key={option.id}
-                className={`rounded-xl p-4 min-h-[80px] text-white relative overflow-hidden transition-all duration-500 ${
+                className={`rounded-xl p-4 min-h-[80px] text-white relative overflow-hidden transition-all duration-500 flex items-center ${
                   isCorrect
                     ? "bg-emerald-500"
                     : isMyChoice
                       ? "bg-red-500"
                       : "bg-gray-400 dark:bg-gray-600"
-                }${sortedOptions.length % 2 === 1 && index === sortedOptions.length - 1 ? " col-span-2 justify-self-center w-[calc(50%-0.375rem)]" : ""}`}
+                }${isMyChoice ? " ring-4 ring-blue-500" : ""}${sortedOptions.length % 2 === 1 && index === sortedOptions.length - 1 ? " col-span-2 justify-self-center w-[calc(50%-0.375rem)]" : ""}`}
               >
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between w-full">
                   <span className="text-lg font-medium"><FormattedText text={option.text} /></span>
                   <span className="text-sm font-mono opacity-80">{count}</span>
                 </div>
@@ -637,6 +637,7 @@ export default function PlayPage() {
         nickname={nickname}
         myRank={myRank}
         myScore={myScore}
+        myDiff={leaderboard.find((e) => e.nickname === nickname)?.diff}
       />
     );
   }
