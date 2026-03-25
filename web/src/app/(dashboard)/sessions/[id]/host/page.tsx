@@ -397,7 +397,7 @@ export default function HostPage() {
                 index < visibleOptions
                   ? "opacity-100 translate-y-0"
                   : "opacity-0 translate-y-4"
-              }`}
+              }${sortedOptions.length % 2 === 1 && index === sortedOptions.length - 1 ? " col-span-2 justify-self-center w-[calc(50%-0.5rem)]" : ""}`}
             >
               {String.fromCharCode(65 + index)}. <FormattedText text={option.text} />
             </div>
@@ -452,7 +452,7 @@ export default function HostPage() {
           {sortedOptions.map((option, index) => (
             <div
               key={option.id}
-              className={`${optionColors[index % 6]} rounded-lg p-6 text-center text-lg font-medium`}
+              className={`${optionColors[index % 6]} rounded-lg p-6 text-center text-lg font-medium${sortedOptions.length % 2 === 1 && index === sortedOptions.length - 1 ? " col-span-2 justify-self-center w-[calc(50%-0.5rem)]" : ""}`}
             >
               {String.fromCharCode(65 + index)}. <FormattedText text={option.text} />
             </div>
@@ -520,7 +520,7 @@ export default function HostPage() {
                   isCorrect
                     ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950"
                     : "border-muted bg-muted/50 opacity-60"
-                }`}
+                }${sortedOptions.length % 2 === 1 && index === sortedOptions.length - 1 ? " col-span-2 justify-self-center w-[calc(50%-0.5rem)]" : ""}`}
               >
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">

@@ -445,11 +445,11 @@ export default function PlayPage() {
           {sortedOptions.map((option, index) => (
             <div
               key={option.id}
-              className={`${optionColorsBg[index % 6]} text-white rounded-xl p-4 min-h-[80px] text-lg font-medium flex items-center justify-center transition-all duration-500 ${
+              className={`${optionColorsBg[index % 6]} text-white rounded-xl p-4 min-h-[80px] text-lg font-medium flex items-center transition-all duration-500 ${
                 index < visibleOptions
                   ? "opacity-100 translate-y-0"
                   : "opacity-0 translate-y-4"
-              }`}
+              }${sortedOptions.length % 2 === 1 && index === sortedOptions.length - 1 ? " col-span-2 justify-self-center w-[calc(50%-0.375rem)]" : ""}`}
             >
               <FormattedText text={option.text} />
             </div>
@@ -528,7 +528,7 @@ export default function PlayPage() {
             <button
               key={option.id}
               onClick={() => handleAnswer(option.id)}
-              className={`${optionColorsInteractive[index % 6]} text-white rounded-xl p-4 min-h-[80px] text-lg font-medium transition-transform active:scale-95 disabled:opacity-50`}
+              className={`${optionColorsInteractive[index % 6]} text-white rounded-xl p-4 min-h-[80px] text-lg font-medium text-left transition-transform active:scale-95 disabled:opacity-50${sortedOptions.length % 2 === 1 && index === sortedOptions.length - 1 ? " col-span-2 justify-self-center w-[calc(50%-0.375rem)]" : ""}`}
               disabled={answered}
             >
               <FormattedText text={option.text} />
@@ -611,7 +611,7 @@ export default function PlayPage() {
                     : isMyChoice
                       ? "ring-4 ring-red-400 opacity-60 " + optionColorsBg[index % 6]
                       : "opacity-40 " + optionColorsBg[index % 6]
-                }`}
+                }${sortedOptions.length % 2 === 1 && index === sortedOptions.length - 1 ? " col-span-2 justify-self-center w-[calc(50%-0.375rem)]" : ""}`}
               >
                 <div className="flex items-center justify-between">
                   <span className="text-lg font-medium"><FormattedText text={option.text} /></span>

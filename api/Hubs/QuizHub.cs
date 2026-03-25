@@ -167,12 +167,37 @@ public class QuizHub : Hub
 
                 await Clients.Caller.SendAsync("QuestionStarted", questionData);
 
-                // Check if this participant already answered the current question
-                var alreadyAnswered = await _db.ParticipantAnswers
-                    .AnyAsync(a => a.ParticipantId == participant.Id && a.QuestionId == question.Id);
-                if (alreadyAnswered)
+                // Send current phase state so reconnecting players see the right screen
+                var phase = _sessionPhase.GetValueOrDefault(session.Id, "question");
+                if (phase == "reveal" && _sessionRevealData.TryGetValue(session.Id, out var revealData))
                 {
-                    await Clients.Caller.SendAsync("AlreadyAnswered");
+                    // Send the player's own answer result first
+                    var myAnswer = await _db.ParticipantAnswers
+                        .FirstOrDefaultAsync(a => a.ParticipantId == participant.Id && a.QuestionId == question.Id);
+                    if (myAnswer is not null)
+                    {
+                        await Clients.Caller.SendAsync("AnswerResult",
+                            new { isCorrect = myAnswer.IsCorrect, awardedPoints = myAnswer.AwardedPoints, newScore = participant.Score });
+                    }
+                    await Clients.Caller.SendAsync("AnswerRevealed", revealData);
+                }
+                else if (phase == "leaderboard")
+                {
+                    var lb = session.Participants
+                        .OrderByDescending(p => p.Score)
+                        .Select((p, i) => new LeaderboardEntry(i + 1, p.Nickname, p.Score, p.Emoji, p.Color))
+                        .ToList();
+                    await Clients.Caller.SendAsync("LeaderboardUpdated", lb);
+                }
+                else
+                {
+                    // Still in question phase — check if already answered
+                    var alreadyAnswered = await _db.ParticipantAnswers
+                        .AnyAsync(a => a.ParticipantId == participant.Id && a.QuestionId == question.Id);
+                    if (alreadyAnswered)
+                    {
+                        await Clients.Caller.SendAsync("AlreadyAnswered");
+                    }
                 }
             }
         }
