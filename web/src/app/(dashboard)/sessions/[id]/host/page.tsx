@@ -307,12 +307,13 @@ export default function HostPage() {
 
         <Card className="mb-8">
           <CardContent className="py-8">
+            <p className="text-2xl font-medium mb-3">
+              <span className="text-muted-foreground">{typeof window !== "undefined" ? window.location.protocol + "//" : "https://"}</span>
+              {typeof window !== "undefined" ? window.location.host : ""}
+            </p>
             <p className="text-sm text-muted-foreground mb-2">Join Code</p>
             <p className="text-6xl font-mono font-bold tracking-widest">
               {session.joinCode}
-            </p>
-            <p className="text-sm text-muted-foreground mt-4">
-              Go to <span className="font-medium">the app</span> and enter this code
             </p>
           </CardContent>
         </Card>
