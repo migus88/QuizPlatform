@@ -579,6 +579,9 @@ export default function PlayPage() {
               <X className="w-10 h-10 text-red-500" />
               <h2 className="text-2xl font-bold text-red-600 dark:text-red-400">
                 {answered ? "Wrong!" : "Time's up!"}
+                {answerResult && answerResult.awardedPoints < 0 && (
+                  <span className="ml-2">{answerResult.awardedPoints}pts</span>
+                )}
               </h2>
             </div>
           )}
@@ -625,8 +628,8 @@ export default function PlayPage() {
           })}
         </div>
 
-        <p className="text-center text-sm text-muted-foreground">
-          Total: {answerResult?.newScore || myScore} points
+        <p className={`text-center text-sm ${(answerResult?.newScore ?? myScore) < 0 ? "text-red-500 font-medium" : "text-muted-foreground"}`}>
+          Total: {answerResult?.newScore ?? myScore} points
         </p>
       </div>
     );

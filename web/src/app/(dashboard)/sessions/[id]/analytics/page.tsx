@@ -258,8 +258,8 @@ function QuestionCard({
                               <X className="w-4 h-4 text-red-500 inline" />
                             )}
                           </td>
-                          <td className="p-2 text-right font-mono">
-                            +{answer.awardedPoints}
+                          <td className={`p-2 text-right font-mono ${answer.awardedPoints < 0 ? "text-red-500" : ""}`}>
+                            {answer.awardedPoints < 0 ? "" : "+"}{answer.awardedPoints}
                           </td>
                         </tr>
                       );

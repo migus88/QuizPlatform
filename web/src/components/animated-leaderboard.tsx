@@ -17,7 +17,7 @@ export function AnimatedLeaderboard({ entries, nickname, myRank, myScore }: Lead
       <h2 className="text-3xl font-bold mb-2">Leaderboard</h2>
       {nickname && myRank != null && (
         <p className="text-muted-foreground mb-6">
-          Your rank: <span className="font-bold">#{myRank}</span> - {myScore} pts
+          Your rank: <span className="font-bold">#{myRank}</span> - <span className={myScore != null && myScore < 0 ? "text-red-500" : ""}>{myScore} pts</span>
         </p>
       )}
       <div className="space-y-2">
@@ -34,7 +34,7 @@ export function AnimatedLeaderboard({ entries, nickname, myRank, myScore }: Lead
                       {entry.nickname}
                     </span>
                   </div>
-                  <span className="font-mono font-bold text-lg">{entry.score}</span>
+                  <span className={`font-mono font-bold text-lg ${entry.score < 0 ? "text-red-500" : ""}`}>{entry.score}</span>
                 </div>
               </CardContent>
             </Card>

@@ -185,7 +185,7 @@ export default function QuizEditorPage() {
       ...prev,
       answerOptions: prev.answerOptions.map((o, i) =>
         i === index
-          ? { ...o, isCorrect: !o.isCorrect, pointsOverride: !o.isCorrect ? o.pointsOverride : null }
+          ? { ...o, isCorrect: !o.isCorrect, pointsOverride: !o.isCorrect ? o.pointsOverride : (prev.disableTimeScoring ? o.pointsOverride : null) }
           : o
       ),
     }));
@@ -251,7 +251,7 @@ export default function QuizEditorPage() {
       answerOptions: questionForm.answerOptions.map((o) => ({
         text: o.text.trim(),
         isCorrect: o.isCorrect,
-        pointsOverride: o.isCorrect ? (o.pointsOverride ?? undefined) : undefined,
+        pointsOverride: o.isCorrect ? (o.pointsOverride ?? undefined) : (o.pointsOverride != null && o.pointsOverride < 0 ? o.pointsOverride : undefined),
       })),
     };
 
@@ -733,14 +733,14 @@ export default function QuizEditorPage() {
                     required
                     className="flex-1"
                   />
-                  {option.isCorrect && (
+                  {(option.isCorrect || questionForm.disableTimeScoring) && (
                     <Input
                       type="number"
-                      min={1}
+                      min={questionForm.disableTimeScoring && !option.isCorrect ? -1000 : 1}
                       max={1000}
                       value={option.pointsOverride ?? ""}
                       onChange={(e) => updateOptionPoints(index, e.target.value)}
-                      placeholder="pts"
+                      placeholder={questionForm.disableTimeScoring && !option.isCorrect ? "−pts" : "pts"}
                       className="w-20"
                     />
                   )}

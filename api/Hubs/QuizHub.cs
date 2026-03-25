@@ -373,6 +373,11 @@ public class QuizHub : Hub
                 }
             }
         }
+        else if (question.DisableTimeScoring && selectedOption?.PointsOverride is < 0)
+        {
+            // Negative scoring: apply penalty for incorrect answers with negative PointsOverride (fixed score only)
+            awardedPoints = selectedOption.PointsOverride.Value;
+        }
 
         var answer = new ParticipantAnswer
         {
