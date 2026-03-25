@@ -8,6 +8,7 @@ import { useQuizHub, HubEvents } from "@/lib/signalr";
 import type { AnswerOptionResponse, LeaderboardEntry, ParticipantResponse } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { PlayerAvatar } from "@/components/player-avatar";
 import { FormattedText } from "@/components/formatted-text";
 import { AnimatedLeaderboard } from "@/components/animated-leaderboard";
@@ -82,6 +83,7 @@ export default function PlayPage() {
   const [visibleOptions, setVisibleOptions] = useState(0);
   const [timerActive, setTimerActive] = useState(false);
   const [countdown, setCountdown] = useState(0);
+  const [showQuitDialog, setShowQuitDialog] = useState(false);
   const myScoreRef = useRef(0);
 
   useEffect(() => {
@@ -345,6 +347,38 @@ export default function PlayPage() {
     }
   };
 
+  const handleQuit = () => {
+    sessionStorage.removeItem("quizSession");
+    connectionRef.current?.stop();
+    router.replace("/join");
+  };
+
+  const quitDialog = (
+    <Dialog open={showQuitDialog} onOpenChange={setShowQuitDialog}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Quit Quiz</DialogTitle>
+          <DialogDescription>
+            Are you sure you want to leave? Your progress will be lost.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={() => setShowQuitDialog(false)}>Cancel</Button>
+          <Button variant="destructive" onClick={handleQuit}>Quit</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+
+  const quitButton = (
+    <button
+      onClick={() => setShowQuitDialog(true)}
+      className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+    >
+      Quit quiz
+    </button>
+  );
+
   // WAITING
   if (playState === "waiting") {
     return (
@@ -407,8 +441,10 @@ export default function PlayPage() {
             {!connected && (
               <p className="text-sm text-amber-500 mt-2">Connecting...</p>
             )}
+            <div className="mt-4">{quitButton}</div>
           </CardContent>
         </Card>
+        {quitDialog}
       </div>
     );
   }
@@ -625,6 +661,8 @@ export default function PlayPage() {
         <p className={`text-center text-sm ${(answerResult?.newScore ?? myScore) < 0 ? "text-red-500 font-medium" : "text-muted-foreground"}`}>
           Total: {answerResult?.newScore ?? myScore} points
         </p>
+        <div className="text-center mt-4">{quitButton}</div>
+        {quitDialog}
       </div>
     );
   }
@@ -632,6 +670,7 @@ export default function PlayPage() {
   // LEADERBOARD
   if (playState === "leaderboard") {
     return (
+      <>
       <AnimatedLeaderboard
         entries={leaderboard}
         nickname={nickname}
@@ -639,6 +678,9 @@ export default function PlayPage() {
         myScore={myScore}
         myDiff={leaderboard.find((e) => e.nickname === nickname)?.diff}
       />
+      <div className="text-center mt-4">{quitButton}</div>
+      {quitDialog}
+      </>
     );
   }
 
@@ -683,5 +725,5 @@ export default function PlayPage() {
     );
   }
 
-  return null;
+  return <>{quitDialog}</>;
 }
