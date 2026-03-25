@@ -399,7 +399,7 @@ export default function HostPage() {
                   : "opacity-0 translate-y-4"
               }${sortedOptions.length % 2 === 1 && index === sortedOptions.length - 1 ? " col-span-2 justify-self-center w-[calc(50%-0.5rem)]" : ""}`}
             >
-              {String.fromCharCode(65 + index)}. <FormattedText text={option.text} />
+              <FormattedText text={option.text} />
             </div>
           ))}
         </div>
@@ -454,7 +454,7 @@ export default function HostPage() {
               key={option.id}
               className={`${optionColors[index % 6]} rounded-lg p-6 text-center text-lg font-medium${sortedOptions.length % 2 === 1 && index === sortedOptions.length - 1 ? " col-span-2 justify-self-center w-[calc(50%-0.5rem)]" : ""}`}
             >
-              {String.fromCharCode(65 + index)}. <FormattedText text={option.text} />
+              <FormattedText text={option.text} />
             </div>
           ))}
         </div>
@@ -526,7 +526,7 @@ export default function HostPage() {
                   <div className="flex items-center gap-2">
                     {isCorrect && <Check className="w-5 h-5 text-emerald-500" />}
                     <span className={`font-medium ${isCorrect ? "text-emerald-700 dark:text-emerald-300" : ""}`}>
-                      {String.fromCharCode(65 + index)}. <FormattedText text={option.text} />
+                      <FormattedText text={option.text} />
                     </span>
                   </div>
                   <span className="text-sm font-mono">{votes}</span>

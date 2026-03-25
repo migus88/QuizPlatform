@@ -607,22 +607,16 @@ export default function PlayPage() {
                 key={option.id}
                 className={`rounded-xl p-4 min-h-[80px] text-white relative overflow-hidden transition-all duration-500 ${
                   isCorrect
-                    ? "ring-4 ring-emerald-400 " + optionColorsBg[index % 6]
+                    ? "bg-emerald-500"
                     : isMyChoice
-                      ? "ring-4 ring-red-400 opacity-60 " + optionColorsBg[index % 6]
-                      : "opacity-40 " + optionColorsBg[index % 6]
+                      ? "bg-red-500"
+                      : "bg-gray-400 dark:bg-gray-600"
                 }${sortedOptions.length % 2 === 1 && index === sortedOptions.length - 1 ? " col-span-2 justify-self-center w-[calc(50%-0.375rem)]" : ""}`}
               >
                 <div className="flex items-center justify-between">
                   <span className="text-lg font-medium"><FormattedText text={option.text} /></span>
                   <span className="text-sm font-mono opacity-80">{count}</span>
                 </div>
-                {isCorrect && (
-                  <Check className="absolute top-1 right-1 w-5 h-5 text-emerald-200" />
-                )}
-                {isMyChoice && !isCorrect && (
-                  <X className="absolute top-1 right-1 w-5 h-5 text-red-200" />
-                )}
               </div>
             );
           })}
