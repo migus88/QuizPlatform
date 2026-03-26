@@ -347,9 +347,13 @@ export default function PlayPage() {
     }
   };
 
-  const handleQuit = () => {
+  const handleQuit = async () => {
     sessionStorage.removeItem("quizSession");
-    connectionRef.current?.stop();
+    try {
+      await connectionRef.current?.stop();
+    } catch {
+      // Ignore stop errors
+    }
     router.replace("/join");
   };
 

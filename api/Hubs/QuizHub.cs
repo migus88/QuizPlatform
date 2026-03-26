@@ -563,15 +563,13 @@ public class QuizHub : Hub
     {
         var sessionGuid = Guid.Parse(sessionId);
 
-        var session = await _db.Sessions.FirstOrDefaultAsync(s => s.Id == sessionGuid);
-        var currentQuestionId = session is not null
-            ? await _db.Quizzes
-                .Where(q => q.Id == session.QuizId)
-                .SelectMany(q => q.Questions.OrderBy(qu => qu.Order))
-                .Skip(session.CurrentQuestionIndex)
-                .Select(q => (Guid?)q.Id)
-                .FirstOrDefaultAsync()
-            : null;
+        var session = await _db.Sessions
+            .Include(s => s.Quiz)
+                .ThenInclude(q => q.Questions.OrderBy(qu => qu.Order))
+            .FirstOrDefaultAsync(s => s.Id == sessionGuid);
+        if (session is null) return;
+
+        var question = session.Quiz.Questions.ElementAtOrDefault(session.CurrentQuestionIndex);
 
         var participants = await _db.Participants
             .Where(p => p.SessionId == sessionGuid)
@@ -580,9 +578,9 @@ public class QuizHub : Hub
 
         // Get awarded points for current question per participant
         var participantIds = participants.Select(p => p.Id).ToList();
-        var diffs = currentQuestionId.HasValue
+        var diffs = question is not null
             ? await _db.ParticipantAnswers
-                .Where(a => a.QuestionId == currentQuestionId.Value &&
+                .Where(a => a.QuestionId == question.Id &&
                     participantIds.Contains(a.ParticipantId))
                 .ToDictionaryAsync(a => a.ParticipantId, a => a.AwardedPoints)
             : new Dictionary<Guid, int>();
