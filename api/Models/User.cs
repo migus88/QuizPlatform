@@ -11,4 +11,5 @@ public class User : IdentityUser
 
     public ICollection<Quiz> Quizzes { get; set; } = [];
     public ICollection<Session> Sessions { get; set; } = [];
+    public ICollection<RefreshToken> RefreshTokens { get; set; } = [];
 }

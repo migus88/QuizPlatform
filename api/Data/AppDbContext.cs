@@ -15,6 +15,7 @@ public class AppDbContext : IdentityDbContext<User>
     public DbSet<Participant> Participants => Set<Participant>();
     public DbSet<ParticipantAnswer> ParticipantAnswers => Set<ParticipantAnswer>();
     public DbSet<PlatformSettings> PlatformSettings => Set<PlatformSettings>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -91,6 +92,18 @@ public class AppDbContext : IdentityDbContext<User>
         {
             entity.HasKey(e => e.Id);
             entity.HasData(new PlatformSettings { Id = 1, JoinCodeLength = 4 });
+        });
+
+        builder.Entity<RefreshToken>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Token).IsRequired().HasMaxLength(128);
+            entity.HasIndex(e => e.Token).IsUnique();
+            entity.HasOne(e => e.User)
+                .WithMany(u => u.RefreshTokens)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.UserId);
         });
 
         builder.Entity<ParticipantAnswer>(entity =>

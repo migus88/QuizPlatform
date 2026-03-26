@@ -26,10 +26,40 @@ export const HubEvents = {
   AVAILABLE_EMOJIS: "AvailableEmojis",
 } as const;
 
+async function getAccessToken(): Promise<string> {
+  const token = localStorage.getItem("token");
+  if (!token) return "";
+
+  // Check if token expires within 2 minutes
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    const exp = payload.exp * 1000;
+    if (Date.now() > exp - 120000) {
+      const refreshToken = localStorage.getItem("refreshToken");
+      if (refreshToken) {
+        const response = await fetch(`${API_URL}/api/auth/refresh`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refreshToken }),
+        });
+        if (response.ok) {
+          const data = await response.json();
+          localStorage.setItem("token", data.token);
+          localStorage.setItem("refreshToken", data.refreshToken);
+          return data.token;
+        }
+      }
+    }
+  } catch {
+    // If token parsing fails, return whatever we have
+  }
+  return token;
+}
+
 export function createQuizConnection(): HubConnection {
   return new HubConnectionBuilder()
     .withUrl(`${API_URL}/hubs/quiz`, {
-      accessTokenFactory: () => localStorage.getItem("token") ?? "",
+      accessTokenFactory: getAccessToken,
     })
     .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
     .build();

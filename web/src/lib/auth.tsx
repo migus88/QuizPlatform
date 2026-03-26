@@ -29,6 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .then(setUser)
         .catch(() => {
           localStorage.removeItem("token");
+          localStorage.removeItem("refreshToken");
         })
         .finally(() => setIsLoading(false));
     } else {
@@ -39,11 +40,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (email: string, password: string) => {
     const response = await api.auth.login({ email, password });
     localStorage.setItem("token", response.token);
+    localStorage.setItem("refreshToken", response.refreshToken);
     setUser(response);
   }, []);
 
   const logout = useCallback(() => {
+    const refreshToken = localStorage.getItem("refreshToken");
+    if (refreshToken) {
+      api.auth.logout(refreshToken).catch(() => {});
+    }
     localStorage.removeItem("token");
+    localStorage.removeItem("refreshToken");
     setUser(null);
     router.push("/login");
   }, [router]);

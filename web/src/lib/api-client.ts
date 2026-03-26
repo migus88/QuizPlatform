@@ -24,6 +24,8 @@ import type {
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5063";
 
 class ApiClient {
+  private refreshPromise: Promise<boolean> | null = null;
+
   private getHeaders(): HeadersInit {
     const headers: HeadersInit = {
       "Content-Type": "application/json",
@@ -37,12 +39,57 @@ class ApiClient {
     return headers;
   }
 
+  private async refreshAccessToken(): Promise<boolean> {
+    if (typeof window === "undefined") return false;
+    const refreshToken = localStorage.getItem("refreshToken");
+    if (!refreshToken) return false;
+
+    try {
+      const response = await fetch(`${API_URL}/api/auth/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refreshToken }),
+      });
+
+      if (!response.ok) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("refreshToken");
+        return false;
+      }
+
+      const data: AuthResponse = await response.json();
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("refreshToken", data.refreshToken);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
-    const response = await fetch(`${API_URL}${path}`, {
+    let response = await fetch(`${API_URL}${path}`, {
       method,
       headers: this.getHeaders(),
       body: body ? JSON.stringify(body) : undefined,
     });
+
+    // On 401, attempt token refresh (but not for auth endpoints themselves)
+    if (response.status === 401 && !path.includes("/auth/")) {
+      if (!this.refreshPromise) {
+        this.refreshPromise = this.refreshAccessToken().finally(() => {
+          this.refreshPromise = null;
+        });
+      }
+      const refreshed = await this.refreshPromise;
+
+      if (refreshed) {
+        response = await fetch(`${API_URL}${path}`, {
+          method,
+          headers: this.getHeaders(),
+          body: body ? JSON.stringify(body) : undefined,
+        });
+      }
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -60,6 +107,12 @@ class ApiClient {
   auth = {
     login: (data: LoginRequest) => this.request<AuthResponse>("POST", "/api/auth/login", data),
     me: () => this.request<AuthResponse>("GET", "/api/auth/me"),
+    logout: (refreshToken: string) =>
+      fetch(`${API_URL}/api/auth/logout`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refreshToken }),
+      }),
   };
 
   // Users (admin)
