@@ -1,4 +1,4 @@
-.PHONY: api web dev test docker-up docker-down deploy deploy-now deploy-snapshot deploy-verify deploy-rollback
+.PHONY: api web dev test docker-up docker-down deploy
 
 # Development
 api:
@@ -20,18 +20,6 @@ docker-up:
 docker-down:
 	docker-compose down
 
-# Production deployment
+# Production deployment (shared VM — see TechDebtClub repo deploy/shared/README.md)
 deploy:
-	@scripts/deploy.sh full
-
-deploy-now:
-	@scripts/deploy.sh deploy
-
-deploy-snapshot:
-	@scripts/deploy.sh snapshot
-
-deploy-verify:
-	@scripts/deploy.sh verify
-
-deploy-rollback:
-	@scripts/deploy.sh rollback
+	@scripts/deploy.sh

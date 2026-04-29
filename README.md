@@ -57,21 +57,21 @@ The API auto-runs database migrations and seeds a default admin user on startup.
 
 ## Deploying with Docker
 
-Build and start the full stack (API + frontend + PostgreSQL):
+Build and start the full stack locally (API + frontend + PostgreSQL):
 
 ```bash
-make docker-up
-```
-
-To stop:
-
-```bash
+make docker-up    # local-only stack
 make docker-down
 ```
 
-Note: This project uses `docker-compose` (hyphenated). If you have Docker Desktop with the compose plugin, replace `docker-compose` with `docker compose` in the Makefile.
+## Production Deployment
 
-```
+This site shares a VM with other small sites. A single Caddy on the VM owns ports 80/443 and routes by hostname to per-site Docker stacks. Deploy with:
+
+```bash
+make deploy
 ```
 
-The Docker setup is designed for a single VPS (e.g. AWS Lightsail). For production, update the JWT secret and database password via environment variables in `docker-compose.yml`.
+That runs `scripts/deploy.sh` (SSH → git pull → docker rebuild → drop Caddy fragment → reload shared Caddy → verify). Required `DEPLOY_*` vars live in `.env` at the repo root — see `.env.example`.
+
+For one-time shared-VM setup and the data-migration cutover from a per-site VM, see `docs/deploy/README.md`.

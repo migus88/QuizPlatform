@@ -1,0 +1,22 @@
+# Replace quiz.yourdomain.com with your actual production domain before
+# the first deploy. The shared Caddy on the VM picks this fragment up from
+# /srv/shared/caddy/sites.d/quizplatform.caddy on every `make deploy`.
+quiz.yourdomain.com {
+    tls /etc/caddy/certs/quizplatform/origin.pem /etc/caddy/certs/quizplatform/origin-key.pem
+
+    handle /hubs/* {
+        reverse_proxy quizplatform-api:5063
+    }
+
+    handle /api/* {
+        reverse_proxy quizplatform-api:5063
+    }
+
+    handle /health {
+        reverse_proxy quizplatform-api:5063
+    }
+
+    handle {
+        reverse_proxy quizplatform-web:3000
+    }
+}
