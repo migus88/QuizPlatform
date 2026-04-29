@@ -1,6 +1,6 @@
 # Deploying QuizPlatform
 
-QuizPlatform deploys to a **shared VM** alongside other small sites (e.g. TechDebtClub). A single Caddy reverse proxy on the VM owns ports 80/443 and routes by hostname to per-site Docker stacks. Each site keeps its own dedicated `postgres` container.
+QuizPlatform deploys to a shared VM that hosts multiple small sites behind a single Caddy reverse proxy. Each site (this one included) runs as an isolated Docker stack with its own Postgres container.
 
 From a developer's perspective, every deploy is just:
 
@@ -8,41 +8,53 @@ From a developer's perspective, every deploy is just:
 make deploy
 ```
 
-That SSHes to the VM, pulls `main`, rebuilds this site's stack, drops `deploy/caddy/quizplatform.caddy` into the shared Caddy, reloads it, and polls the health endpoint until 200.
+## Local setup
 
-## Required local config
+Copy `.env.example` to `.env` at the repo root. Fill in:
 
-Copy `.env.example` to `.env` at the repo root and fill in:
+- **Local-only deployment vars** (read by `scripts/deploy.sh`):
+  - `DEPLOY_SSH_USER` — SSH user on the shared VM (e.g. `ubuntu`)
+  - `DEPLOY_SSH_HOST` — shared VM IP or hostname
+  - `DEPLOY_SSH_KEY` — local path to the SSH private key
+  - `DEPLOY_REMOTE_DIR` — `/home/ubuntu/sites/quizplatform`
+  - `DEPLOY_SITE_NAME` — `quizplatform`
+  - `DEPLOY_API_URL` — public production URL
+  - `DEPLOY_HEALTH_PATH` — `/health` (this site exposes health at root, not under `/api`)
 
-- `DEPLOY_SSH_USER` — SSH user (e.g. `ubuntu`)
-- `DEPLOY_SSH_HOST` — shared VM static IP
-- `DEPLOY_SSH_KEY` — local path to the SSH private key
-- `DEPLOY_REMOTE_DIR` — `/home/ubuntu/sites/quizplatform`
-- `DEPLOY_SITE_NAME` — `quizplatform`
-- `DEPLOY_API_URL` — your production URL
-- `DEPLOY_HEALTH_PATH` — `/health` (the QuizPlatform API exposes health at root, not under `/api`)
+- **Production env** (the API + frontend read these on the VM): see `.env.example` for the full list — DB connection, JWT key, public URL, CORS origin.
 
-## One-time shared-VM setup and cutover
+## What `make deploy` does
 
-The shared infra (Caddy stack, `web` Docker network, cert layout) and the cross-VM data migration from QuizPlatform's old per-site Lightsail instance are documented in the **TechDebtClub** repo at `deploy/shared/README.md`. That runbook is the canonical reference because the shared Caddy lives next to TDC's checkout on the VM.
+`scripts/deploy.sh` runs locally and:
 
-Specific to QuizPlatform's cutover:
+1. SSHes to the shared VM and `git pull`s in `$DEPLOY_REMOTE_DIR`.
+2. Copies `deploy/caddy/quizplatform.caddy` into the shared Caddy's `sites.d/` directory.
+3. Rebuilds the stack: `docker compose -f docker/docker-compose.prod.yml --env-file .env up -d --build --remove-orphans`.
+4. Reloads the shared Caddy to pick up the fragment.
+5. Polls `$DEPLOY_API_URL$DEPLOY_HEALTH_PATH` until 200, retrying for up to two minutes.
 
-1. Replace `quiz.yourdomain.com` in `deploy/caddy/quizplatform.caddy` with the actual production domain (the placeholder is committed so the file structure is reviewable, but it must match your DNS before the first deploy).
-2. Copy the existing Cloudflare origin cert from the old QuizPlatform VM into `/srv/shared/caddy/certs/quizplatform/` on the shared VM.
-3. `pg_dump` the existing database off the old VM and restore it into the new `quizplatform-postgres` container — see step `f` of the shared infra runbook.
-4. Repoint the Cloudflare A record to the shared VM's static IP.
-5. Run `make deploy` from local.
+Production secrets live in `.env` on the VM (gitignored). You only SSH in to edit it when a value changes; deploys leave it alone. `NEXT_PUBLIC_API_URL` is baked into the Next.js image at build time, so changing the public URL requires a redeploy.
 
-## Architecture
+## Stack architecture
 
 ```
-Internet → Cloudflare (proxy + SSL) → shared VM
-                                       ├─ shared Caddy (ports 80/443, routes by Host header)
-                                       │   ├─ <quiz-domain>/api/*, /hubs/*, /health → quizplatform-api:5063
-                                       │   └─ <quiz-domain>/...                     → quizplatform-web:3000
-                                       ├─ quizplatform-postgres (internal, on quizplatform's default network)
-                                       └─ ... (other sites' stacks, isolated from this one)
+shared Caddy (ports 80/443, on the shared VM)
+├── /api/*, /hubs/*, /health → quizplatform-api:5063
+└── /                         → quizplatform-web:3000
+
+isolated to this stack:
+└── quizplatform-postgres:5432   (default network only — no external exposure, no cross-site access)
 ```
 
-Caddy terminates TLS using a Cloudflare origin certificate mounted at `/etc/caddy/certs/quizplatform/`. The frontend (`NEXT_PUBLIC_API_URL`) is baked in at Docker build time, so changing the public URL requires a redeploy.
+Caddy terminates TLS using a Cloudflare origin certificate mounted at `/etc/caddy/certs/quizplatform/`. The `api` and `web` containers join an external Docker network named `web` so the shared Caddy can reach them by service name. The `postgres` container stays off `web`.
+
+## Onboarding to a fresh shared VM
+
+If the shared VM doesn't yet exist or QuizPlatform isn't on it, follow the "Onboarding a new site" steps in the shared infra guide that lives alongside the shared Caddy compose. From this site's side you need:
+
+- A Cloudflare A record for the production domain → shared VM IP, proxied
+- A Cloudflare origin cert at `/srv/shared/caddy/certs/quizplatform/{origin.pem,origin-key.pem}`
+- A repo checkout at `/home/ubuntu/sites/quizplatform/` with `.env` populated
+- The Caddyfile fragment at `deploy/caddy/quizplatform.caddy` matches the production domain
+
+Then `make deploy` from your laptop completes the bring-up.

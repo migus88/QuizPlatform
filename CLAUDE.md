@@ -11,13 +11,12 @@ make web          # Web only (http://localhost:3000)
 make test         # Run .NET tests
 make docker-up    # Full stack via Docker
 make docker-down  # Stop Docker
-make deploy       # Full production deploy (snapshot + deploy + verify)
-make deploy-now   # Quick deploy (skip snapshot)
-make deploy-verify # Check production health
-make deploy-rollback # Restore from last snapshot
+make deploy       # Deploy to the shared VM
 ```
 
-Deployment docs: `docs/deploy/README.md`
+Deployment runs against a shared VM (one Caddy + N per-site Docker stacks routed by hostname). The script is `scripts/deploy.sh`, parametric over `DEPLOY_*` env vars in `.env` at the repo root. The per-site Caddy fragment is `deploy/caddy/quizplatform.caddy`. The compose file pins compose project name `quizplatform` and container_names prefixed `quizplatform-*` — those names are part of the shared-VM contract; don't rename them. Health endpoint is `/health` (not `/api/health`); set `DEPLOY_HEALTH_PATH=/health` in `.env`.
+
+Full deployment docs: `docs/deploy/README.md`.
 
 Database (PostgreSQL via Docker): `docker-compose up -d postgres`. The API auto-runs EF migrations and seeds on startup. Seed admin: `admin@admin.com` / `Admin1!`.
 

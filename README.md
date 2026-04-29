@@ -66,12 +66,10 @@ make docker-down
 
 ## Production Deployment
 
-This site shares a VM with other small sites. A single Caddy on the VM owns ports 80/443 and routes by hostname to per-site Docker stacks. Deploy with:
+QuizPlatform deploys to a shared VM via:
 
 ```bash
 make deploy
 ```
 
-That runs `scripts/deploy.sh` (SSH → git pull → docker rebuild → drop Caddy fragment → reload shared Caddy → verify). Required `DEPLOY_*` vars live in `.env` at the repo root — see `.env.example`.
-
-For one-time shared-VM setup and the data-migration cutover from a per-site VM, see `docs/deploy/README.md`.
+See `docs/deploy/README.md` for the local `.env` setup, the architecture, and what the deploy script does.
